@@ -1,8 +1,11 @@
-#include "ultrasonic_sensor.h"
-#include "log_manager.h"
-#include "mqtt_manager.h"
+#include "../include/ultrasonic_sensor.h"
+#include "../include/publish_manager.h"
+#include "../include/mqtt_manager.h"
 
 static int trigPin, echoPin;
+
+static const char* topico_distancia = "sensor/distancia";
+static const String& tipo = "DISTANCIA";
 
 void configurarSensor(int trig, int echo) {
   trigPin = trig;
@@ -22,17 +25,17 @@ long lerDistancia() {
   return (duration == 0) ? -1 : duration / 58;
 }
 
-void publicarDistancia() {
+void publicarDistancia(bool *memoria_montada) {
   long distancia = lerDistancia();
   String mensagem = (distancia >= 0) ? String(distancia) : "Erro na leitura do sensor";
 
-  logMessage("Distancia lida: " + mensagem, "INFO", "sensor", distancia);
+  publishMessage("Distancia lida: " + mensagem, "INFO", tipo, topico_distancia, distancia, *memoria_montada);
 
   if (getMQTTClient().connected()) {
-    logMessage("Distancia publicada com sucesso via MQTT", "SUCCESS", "sensor");
+    publishMessage("Distancia publicada com sucesso via MQTT", "SUCCESS", tipo, topico_distancia);
   } else {
-    logMessage("Falha ao publicar distancia via MQTT", "ERROR", "sensor");
+    publishMessage("Falha ao publicar distancia via MQTT", "ERROR", tipo, topico_distancia);
   }
-
-  tentarEnviarLogsPendentes();
+  
+  tentarEnviarLogsPendentes(memoria_montada);
 }

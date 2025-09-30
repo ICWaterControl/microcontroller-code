@@ -1,17 +1,21 @@
-#include "wifi_manager.h"
 #include <WiFi.h>
 #include <time.h>
-#include "log_manager.h"
+
+#include "../include/wifi_manager.h"
+#include "../include/publish_manager.h"
+
+static const char* topico = "sistema/comunicacao/wifi";
+static const String& tipo = "WI-FI";
 
 void conectarWiFi(const char* ssid, const char* password) {
-  WiFi.begin(ssid, password);
+  WiFi.begin(ssid);
   Serial.print("[WiFi] Conectando");
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
   Serial.println();
-  logMessage("Wi-Fi conectado com sucesso", "SUCCESS");
+  publishMessage("Wi-Fi conectado com sucesso", "SUCCESS", tipo, topico);
 }
 
 bool sincronizarHorarioNTP() {
@@ -19,11 +23,11 @@ bool sincronizarHorarioNTP() {
   struct tm timeinfo;
   for (int i = 0; i < 10; i++) {
     if (getLocalTime(&timeinfo)) {
-      logMessage("Tempo NTP sincronizado com sucesso", "SUCCESS");
+      publishMessage("Tempo NTP sincronizado com sucesso", "SUCCESS", tipo, topico);
       return true;
     }
     delay(1000);
   }
-  logMessage("Falha ao obter tempo via NTP", "ERROR");
+  publishMessage("Falha ao obter tempo via NTP", "ERROR", tipo, topico);
   return false;
 }
