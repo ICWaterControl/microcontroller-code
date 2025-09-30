@@ -8,7 +8,7 @@ static const char* topico = "sistema/comunicacao/wifi";
 static const String& tipo = "WI-FI";
 
 void conectarWiFi(const char* ssid, const char* password) {
-  WiFi.begin(ssid);
+  WiFi.begin(ssid, password);
   Serial.print("[WiFi] Conectando");
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
