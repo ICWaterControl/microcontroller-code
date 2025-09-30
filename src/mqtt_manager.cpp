@@ -33,14 +33,14 @@ bool conectarMQTT(unsigned long timeoutMs) { // Timeout padrão 30s
 
   while (!client.connected()) {
     if (client.connect("ESP32Client", _user, _password)) {
-      publishMessage("MQTT conectado com sucesso", "SUCCESS", tipo, topico);
+      publishMessage("MQTT conectado com sucesso", "SUCCESS", topico);
       return true;
     } else {
-      publishMessage("Falha ao conectar no MQTT. Código: " + String(client.state()), "ERROR", tipo, topico);
+      publishMessage("Falha ao conectar no MQTT. Código: " + String(client.state()), "ERROR", topico);
       delay(5000);
     }
     if (millis() - start > timeoutMs) {
-      publishMessage("Timeout ao tentar conectar MQTT", "ERROR", tipo, topico);
+      publishMessage("Timeout ao tentar conectar MQTT", "ERROR", topico);
       return false;
     }
   }

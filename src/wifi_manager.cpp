@@ -15,7 +15,7 @@ void conectarWiFi(const char* ssid, const char* password) {
     Serial.print(".");
   }
   Serial.println();
-  publishMessage("Wi-Fi conectado com sucesso", "SUCCESS", tipo, topico);
+  publishMessage("Wi-Fi conectado com sucesso", "SUCCESS", topico);
 }
 
 bool sincronizarHorarioNTP() {
@@ -23,11 +23,11 @@ bool sincronizarHorarioNTP() {
   struct tm timeinfo;
   for (int i = 0; i < 10; i++) {
     if (getLocalTime(&timeinfo)) {
-      publishMessage("Tempo NTP sincronizado com sucesso", "SUCCESS", tipo, topico);
+      publishMessage("Tempo NTP sincronizado com sucesso", "SUCCESS",  topico);
       return true;
     }
     delay(1000);
   }
-  publishMessage("Falha ao obter tempo via NTP", "ERROR", tipo, topico);
+  publishMessage("Falha ao obter tempo via NTP", "ERROR",  topico);
   return false;
 }

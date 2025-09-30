@@ -5,10 +5,12 @@
 
 //const char* ssid = "CLARO_2G6FEFEE";
 //const char* password = "386FEFEE";
+
 //const char* ssid = "Mandrade";
 //const char* password = "33534170";
-const char* ssid = "Wokwi-GUEST";
-const char* password = "";
+
+const char* ssid = "Malware";
+const char* password = "isabella";
 
 const char* mqtt_server    = "0bbdda7fb11e4c4795c3e07e3ac1ff60.s1.eu.hivemq.cloud";
 const int   mqtt_port      = 8883;
@@ -28,7 +30,7 @@ void setup() {
 
   Serial.println("ESP32 is running");
 
-  memoria_montada = iniciarLittleFS();
+  memoria_montada = iniciarSPIFFS();
   configurarSensor(trigPin, echoPin);
 
   conectarWiFi(ssid, password); 

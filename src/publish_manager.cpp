@@ -2,13 +2,13 @@
 #include "../include/mqtt_manager.h"
 
 #include "FS.h"
-#include <LittleFS.h>
+#include <SPIFFS.h>
 #include <ArduinoJson.h>
 
 static const char* topico_pendentes = "sistema/pendentes";
 
 // Cria mensagem de log
-String criarJsonLog(const String& mensagem, const String& nivel, const String& tipo = "sistema", int distancia = -1) {
+String criarJsonLog(const String& mensagem, const String& status, int distancia = -1) {
   JsonDocument doc;
   struct tm timeinfo;
 
@@ -21,9 +21,8 @@ String criarJsonLog(const String& mensagem, const String& nivel, const String& t
   }
 
   // Adiciona os campos ao JSON
-  doc["nivel"] = nivel;
+  doc["status"] = status;
   doc["origem"] = "esp32";
-  doc["tipo"] = tipo;
   doc["mensagem"] = mensagem;
 
   if (distancia >= 0) {
@@ -36,16 +35,16 @@ String criarJsonLog(const String& mensagem, const String& nivel, const String& t
 }
 
 // Inicia memória FLASH
-bool iniciarLittleFS() {
-  if (!LittleFS.begin(true)) {
-    Serial.println("[LittleFS] Falha ao montar LittleFS");
+bool iniciarSPIFFS() {
+  if (!SPIFFS.begin(true)) {
+    Serial.println("[SPIFFS] Falha ao montar SPIFFS");
     return false;
   }
   return true;
 }
 
-void publishMessage(const String& mensagem, const String& nivel, const String& tipo, const char* topico, int distancia, bool memoria_montada) {
-  String logStr = criarJsonLog(mensagem, nivel, tipo, distancia);
+void publishMessage(const String& mensagem, const String& status, const char* topico, int distancia, bool memoria_montada) {
+  String logStr = criarJsonLog(mensagem, status, distancia);
 
   Serial.println(logStr); // Imprime log no monitor serial (depuração)
 
@@ -57,16 +56,16 @@ void publishMessage(const String& mensagem, const String& nivel, const String& t
   } else {
     // Se falhar, salva o log no memória Flash
     if (memoria_montada) {
-      File file = LittleFS.open("/log.txt", FILE_APPEND);
+      File file = SPIFFS.open("/log.txt", FILE_APPEND);
       if (file) {
         file.println(logStr);
         file.close();
-        Serial.println("[LittleFS] Log salvo localmente.");
+        Serial.println("[SPIFFS] Log salvo localmente.");
       } else {
-        Serial.println("[LittleFS] Erro ao salvar log.");
+        Serial.println("[SPIFFS] Erro ao salvar log.");
       }
     } else {
-      //memoria_montada = iniciarLittleFS();
+      //memoria_montada = iniciarSPIFFS();
     }
   }
 }
@@ -77,10 +76,10 @@ void tentarEnviarLogsPendentes(bool* memoria_montada) {
 
   auto& client = getMQTTClient(); 
   
-  if (!LittleFS.exists("/log.txt")) return;
+  if (!SPIFFS.exists("/log.txt")) return;
 
-  File file = LittleFS.open("/log.txt", "r");
-  File tempFile = LittleFS.open("/temp_log.txt", FILE_WRITE);
+  File file = SPIFFS.open("/log.txt", "r");
+  File tempFile = SPIFFS.open("/temp_log.txt", FILE_WRITE);
 
   if (!file || !tempFile) {
     if (file) file.close();
@@ -106,11 +105,11 @@ void tentarEnviarLogsPendentes(bool* memoria_montada) {
 
   file.close();
   tempFile.close();
-  LittleFS.remove("/log.txt");
+  SPIFFS.remove("/log.txt");
 
   if (algumFalhou) {
-    LittleFS.rename("/temp_log.txt", "/log.txt");
+    SPIFFS.rename("/temp_log.txt", "/log.txt");
   } else {
-    LittleFS.remove("/temp_log.txt");
+    SPIFFS.remove("/temp_log.txt");
   }
 }
