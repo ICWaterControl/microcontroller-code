@@ -7,7 +7,7 @@
 static const char* topico = "sistema/comunicacao/wifi";
 static const String& tipo = "WI-FI";
 
-void conectarWiFi(const char* ssid, const char* password) {
+void conectarWiFi(const char* ssid, const char* password, bool* conectado) {
   WiFi.begin(ssid, password);
   Serial.print("[WiFi] Conectando");
   while (WiFi.status() != WL_CONNECTED) {
@@ -16,6 +16,12 @@ void conectarWiFi(const char* ssid, const char* password) {
   }
   Serial.println();
   publishMessage("Wi-Fi conectado com sucesso", "SUCCESS", topico);
+  *conectado = true;
+}
+
+void reconectarWiFi(const char* ssid, const char* password, bool* conectado) {
+  WiFi.begin(ssid, password);
+  *conectado = true;
 }
 
 bool sincronizarHorarioNTP() {

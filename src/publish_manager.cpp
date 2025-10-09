@@ -43,37 +43,31 @@ bool iniciarSPIFFS() {
   return true;
 }
 
-void publishMessage(const String& mensagem, const String& status, const char* topico, int distancia, bool memoria_montada) {
+void publishMessage(const String& mensagem, const String& status, const char* topico, int distancia) {
   String logStr = criarJsonLog(mensagem, status, distancia);
 
   Serial.println(logStr); // Imprime log no monitor serial (depuração)
 
-  auto& client = getMQTTClient(); // Obtém o cliente MQTT (de mqtt_manager.h)
+  auto& client = getMQTTClient(); 
 
   // Tentar enviar o log via MQTT
   if (client.connected() && client.publish(topico, logStr.c_str())) {
     Serial.println("[MQTT] Log enviado com sucesso.");
   } else {
     // Se falhar, salva o log no memória Flash
-    if (memoria_montada) {
-      File file = SPIFFS.open("/log.txt", FILE_APPEND);
-      if (file) {
-        file.println(logStr);
-        file.close();
-        Serial.println("[SPIFFS] Log salvo localmente.");
-      } else {
-        Serial.println("[SPIFFS] Erro ao salvar log.");
-      }
+    File file = SPIFFS.open("/log.txt", FILE_APPEND);
+    if (file) {
+      file.println(logStr);
+      file.close();
+      Serial.println("[SPIFFS] Log salvo localmente.");
     } else {
-      //memoria_montada = iniciarSPIFFS();
+      Serial.println("[SPIFFS] Erro ao salvar log.");
     }
   }
 }
 
 // Tenta enviar logs salvos na memória Flash
-void tentarEnviarLogsPendentes(bool* memoria_montada) {
-  if (!*memoria_montada) return;
-
+void tentarEnviarLogsPendentes() {
   auto& client = getMQTTClient(); 
   
   if (!SPIFFS.exists("/log.txt")) return;

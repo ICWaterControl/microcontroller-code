@@ -1,8 +1,10 @@
 #ifndef ULTRASONIC_SENSOR_H
 #define ULTRASONIC_SENSOR_H
 
+#include <array>
+
 void configurarSensor(int trig, int echo);
 long lerDistancia();
-void publicarDistancia(bool*);
+void publicarDadosSensor(bool*);
 
 #endif
