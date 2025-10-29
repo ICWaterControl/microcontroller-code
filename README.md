@@ -137,12 +137,7 @@ Siga os passos abaixo para compilar e executar o projeto.
 
 | Função | Nome | LinkedIn |
 | :--- | :--- | :--- |
-| **Orientador** | Dr. Márcio Sousa | - |
-| **Desenvolvedor** | Pedro Henrique Mascarenhas de Andrade | [LinkedIn](https://www.linkedin.com/in/pedroandrade07/) |
-| **Desenvolvedor** | Gustavo Maia | [LinkedIn](https://www.linkedin.com/in/gustavomaia-dev/) |
+| **Orientador** | Dr. Márcio Sousa | [LinkedIn](https://www.linkedin.com/in/marcio-soussa/) |
+| **Desenvolvedor** | Pedro Henrique Mascarenhas de Andrade | [LinkedIn](https://www.linkedin.com/in/pedrohmandrade/) |
+| **Desenvolvedor** | Gustavo Maia | [LinkedIn](https://www.linkedin.com/in/gustavomaiajesus/) |
 
----
-
-## ⚖️ Licença
-
-Este projeto está licenciado sob a Licença MIT.
