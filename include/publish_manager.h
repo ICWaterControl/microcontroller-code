@@ -9,9 +9,13 @@
  */
 // Diretiva de pré-processador que garante que este arquivo de cabeçalho seja
 // incluído apenas uma vez por unidade de compilação, evitando erros de redefinição.
-#pragma once
+#ifndef PUBLISH_MANAGER_H
+#define PUBLISH_MANAGER_H
 
 #include <Arduino.h>
+#include "FS.h"
+#include <SPIFFS.h>
+#include <ArduinoJson.h>
 
 /**
  * @brief Publica ou registra uma mensagem.
@@ -46,3 +50,5 @@ void tentarEnviarLogsPendentes();
  * @return `true` se o SPIFFS foi iniciado com sucesso, `false` caso contrário.
  */
 bool iniciarSPIFFS();
+
+#endif

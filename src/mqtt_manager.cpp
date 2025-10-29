@@ -10,8 +10,6 @@
 #include "../include/mqtt_manager.h"
 #include "../include/publish_manager.h"
 
-#include <WiFiClientSecure.h>
-
 // --- Variáveis Estáticas Globais ---
 
 // Instância do cliente Wi-Fi seguro, usado como camada de transporte para o MQTT.

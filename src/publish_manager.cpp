@@ -9,10 +9,6 @@
 #include "../include/publish_manager.h"
 #include "../include/mqtt_manager.h"
 
-#include "FS.h"
-#include <SPIFFS.h>
-#include <ArduinoJson.h>
-
 // Tópico MQTT para onde os logs pendentes serão enviados.
 static const char* topico_pendentes = "sistema/pendentes";
 

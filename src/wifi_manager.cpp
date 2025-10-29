@@ -7,9 +7,6 @@
  *          são registrados usando o `publish_manager`.
  */
 
-#include <WiFi.h>
-#include <time.h>
-
 #include "../include/wifi_manager.h"
 #include "../include/publish_manager.h"
 
@@ -35,7 +32,13 @@ void conectarWiFi(const char* ssid, const char* password, bool* conectado) {
     Serial.print(".");
   }
   Serial.println();
-  publishMessage("Wi-Fi conectado com sucesso", "SUCCESS", topico);
+
+  char message[128];
+  if (sizeof(ssid) > 108) {
+    ssid = "SSID muito longo";
+  }
+  snprintf(message, sizeof(message), "Conectado na rede: %s", ssid);
+  publishMessage(String(message), "SUCCESS", topico);
   *conectado = true;
 }
 

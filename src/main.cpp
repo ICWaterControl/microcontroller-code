@@ -7,18 +7,13 @@
  *          a leitura dos sensores, a manutenção da conectividade e a publicação dos dados.
  */
 
-#include "../include/wifi_manager.h"
-#include "../include/mqtt_manager.h"
-#include "../include/publish_manager.h"
-#include "../include/ultrasonic_sensor.h"
-
-#include <WiFi.h>
+ #include "../include/main.h"
 
 // --- Configurações da Rede e Servidores ---
 
 // Credenciais da Rede Wi-Fi
-const char* ssid = "Mandrade";
-const char* password = "33534170";
+const char* ssid = "Wokwi-GUEST";
+const char* password = "";
 
 // Configurações do Broker MQTT
 const char* mqtt_server    = "0bbdda7fb11e4c4795c3e07e3ac1ff60.s1.eu.hivemq.cloud";
@@ -87,9 +82,19 @@ void loop() {
     publicarDadosSensor(&conectado);
   }
 
+  /* Modularizar esse trecho */
   if (!conectado) {
     reconectarWiFi(ssid, password, &conectado);
     if (conectado) {
+
+      /* Modularizar esse trecho */
+      char message[128];
+      if (sizeof(ssid) > 108) {
+        ssid = "SSID muito longo";
+      }
+      snprintf(message, sizeof(message), "Reconectado na rede: %s", ssid);
+
+      publishMessage(String(message), "SUCCESS", "sistema/comunicacao/wifi");
       sincronizarHorarioNTP();  
       configurarMQTT(mqtt_server, mqtt_port, mqtt_user, mqtt_password);
       conectarMQTT();  

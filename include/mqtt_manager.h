@@ -10,6 +10,7 @@
 #define MQTT_MANAGER_H
 
 #include <PubSubClient.h>
+#include <WiFiClientSecure.h>
 
 /**
  * @brief Configura os parâmetros de conexão do cliente MQTT.

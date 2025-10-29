@@ -10,6 +10,11 @@
 #ifndef WIFI_MANAGER_H
 #define WIFI_MANAGER_H
 
+#include <WiFi.h>
+#include <time.h>
+#include <string.h>
+#include <cstdio>
+
 /**
  * @brief Estabelece a conexão inicial com a rede Wi-Fi.
  * @details Esta função deve ser chamada durante a inicialização do sistema. Ela inicia o processo de conexão
