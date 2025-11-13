@@ -52,41 +52,38 @@ Siga os passos abaixo para compilar e executar o projeto.
 
 1.  **Clone o repositório:**
     ```bash
-    git clone https://github.com/seu-usuario/seu-repositorio.git
-    cd seu-repositorio
+    git clone https://github.com/ICWaterControl/microcontroller-code.git
+    cd microcontroller-code
     ```
 
 2.  **Abra o projeto no VS Code:**
     -   Com o VS Code aberto, clique em `File > Open Folder...` e selecione a pasta do projeto.
-    -   O PlatformIO irá reconhecer o `platformio.ini` e configurar o ambiente.
+    -   O PlatformIO irá reconhecer o `platformio.ini` e instalar as dependências automaticamente.
 
-3.  **Configure as credenciais:**
+3.  **Configure as credenciais MQTT:**
     -   Abra o arquivo `src/main.cpp`.
     -   Localize e altere as seguintes variáveis com as suas informações:
 
     ```cpp
-    // --- Configurações da Rede e Servidores ---
-
-    // Credenciais da Rede Wi-Fi
-    const char* ssid = "SUA_REDE_WIFI";
-    const char* password = "SUA_SENHA_WIFI";
-
     // Configurações do Broker MQTT (HiveMQ Cloud ou outro)
     const char* mqtt_server    = "SEU_BROKER_URL";
     const int   mqtt_port      = 8883;
     const char* mqtt_user      = "SEU_USUARIO_MQTT";
     const char* mqtt_password  = "SUA_SENHA_MQTT";
-
-    // Pinos do Sensor Ultrassônico (ajuste se necessário)
-    const int trigPin = 5;
-    const int echoPin = 18;
     ```
 
 4.  **Compile e envie para o ESP32:**
     -   Conecte o ESP32 ao seu computador.
     -   Na barra de status do PlatformIO (canto inferior do VS Code), clique no ícone de seta (→) para compilar e fazer o upload do firmware.
 
-5.  **Monitore a execução:**
+5.  **Configure a rede Wi-Fi:**
+    -   Após o primeiro boot, o ESP32 criará um ponto de acesso (AP) com o nome **`CaixaDagua_AP`**.
+    -   Conecte-se a esta rede Wi-Fi com seu celular ou computador.
+    -   Abra um navegador e acesse o endereço **`192.168.4.1`**.
+    -   Uma página de configuração será exibida. Selecione a sua rede Wi-Fi, insira a senha e salve.
+    -   O ESP32 irá se conectar à sua rede e reiniciar.
+
+6.  **Monitore a execução:**
     -   Após o upload, clique no ícone de tomada (🔌) para abrir o Monitor Serial e acompanhar as mensagens de log do dispositivo.
 
 ---
@@ -130,6 +127,17 @@ Siga os passos abaixo para compilar e executar o projeto.
   "altura_lamina_agua": 12.5
 }
 ```
+
+---
+
+## 📡 Tópicos MQTT
+
+O sistema utiliza os seguintes tópicos para comunicação:
+
+-   `sistema/comunicacao/mqtt`: Logs e status da conexão MQTT.
+-   `sistema/comunicacao/wifi`: Logs e status da conexão Wi-Fi.
+-   `sensor/distancia`: Publicação dos dados de distância do sensor.
+-   `sistema/pendentes`: Logs de mensagens pendentes enviadas após a reconexão.
 
 ---
 
