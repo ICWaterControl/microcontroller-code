@@ -8,16 +8,12 @@
  */
 
 #include "../include/ultrasonic_sensor.h"
-#include "../include/publish_manager.h"
-#include "../include/mqtt_manager.h"
-#include "../include/wifi_manager.h"
+#include <Arduino.h>
 
 // --- Configuração e Constantes ---
 
 // Pinos do microcontrolador conectados ao sensor.
 static int trigPin, echoPin;
-// Tópico MQTT para a publicação das leituras de distância.
-static const char* topico_distancia = "sensor/distancia";
 
 // Duração do pulso de trigger em microssegundos. Um pulso mais longo pode garantir a ativação em alguns sensores.
 const int TRIGGER_PULSE_DURATION_US = 15;
@@ -64,36 +60,4 @@ long lerDistancia() {
 
     long duration = pulseIn(echoPin, HIGH, PULSEIN_TIMEOUT_US);
     return (duration == 0) ? -1 : duration / SOUND_SPEED_DIVISOR;
-}
-
-/**
- * @brief Orquestra a leitura e publicação dos dados do sensor.
- * @details Esta função centraliza a lógica de negócios do sensor. Ela primeiro chama `lerDistancia()`.
- *          - Se a leitura falhar (retorno < 0), uma mensagem de erro é registrada.
- *          - Se a leitura for bem-sucedida, a distância é convertida para uma string.
- *          - A função então verifica se o cliente MQTT está conectado. Se estiver, publica a leitura com um status
- *            de sucesso. Se não estiver, ela atualiza a flag de status da conexão (`*conectado = false`) e registra
- *            a leitura localmente com um status de erro, garantindo que o dado não seja perdido.
- *          Finalmente, `tentarEnviarLogsPendentes()` é chamado para garantir que quaisquer dados salvos
- *          anteriormente sejam reenviados se a conexão tiver sido restabelecida.
- * @param conectado Ponteiro para a flag de estado da conexão, que pode ser modificada pela função.
- */
-void publicarDadosSensor(bool* conectado) {
-    long distancia = lerDistancia();
-
-    if (distancia < 0) {
-        publishMessage("Erro na leitura do sensor", "ERROR", topico_distancia);
-    } else {
-        
-        String payload = String(distancia);
-
-        if (getMQTTClient().connected()) {
-            publishMessage("Distancia lida publicada via MQTT: " + payload, "SUCCESS", topico_distancia, distancia);
-        } else {
-            *conectado = false;
-            publishMessage("MQTT offline. Salvando distancia: " + payload, "ERROR", topico_distancia, distancia);
-        }
-    }
-    
-    tentarEnviarLogsPendentes();
 }

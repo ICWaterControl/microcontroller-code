@@ -8,6 +8,9 @@
  */
 
  #include "../include/main.h"
+ #include "../include/battery_sensor.h"
+ #include "../include/publish_manager.h"
+
 
 // --- Configurações da Rede e Servidores ---
 
@@ -46,6 +49,7 @@ void setup() {
 
   Serial.println("ESP32 is running");
 
+  setupBatterySensor();
   iniciarSPIFFS();
   configurarSensor(trigPin, echoPin);
 
@@ -56,7 +60,8 @@ void setup() {
   conectarMQTT();            
 
   tentarEnviarLogsPendentes();
-  publicarDadosSensor(&conectado);
+  publicarLeituraDistancia(&conectado);
+  publicarLeituraBateria(&conectado);
 }
 
 /**
@@ -77,7 +82,8 @@ void loop() {
 
   if (agora - ultimaLeitura >= intervalo) {
     ultimaLeitura = agora;
-    publicarDadosSensor(&conectado);
+    publicarLeituraDistancia(&conectado);
+    publicarLeituraBateria(&conectado);
   }
 
   if (!conectado) {

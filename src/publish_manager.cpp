@@ -8,9 +8,13 @@
 
 #include "../include/publish_manager.h"
 #include "../include/mqtt_manager.h"
+#include "../include/ultrasonic_sensor.h"
+#include "../include/battery_sensor.h"
 
-// Tópico MQTT para onde os logs pendentes serão enviados.
+// Tópicos MQTT
 static const char* topico_pendentes = "sistema/pendentes";
+static const char* topico_distancia = "sensor/distancia";
+static const char* topico_bateria = "sensor/bateria";
 
 /**
  * @brief Cria uma string de log formatada em JSON.
@@ -21,9 +25,11 @@ static const char* topico_pendentes = "sistema/pendentes";
  * @param mensagem A mensagem principal do log.
  * @param status O status ou nível do log (ex: "INFO", "ERROR").
  * @param distancia Um valor de distância opcional a ser incluído. Se negativo, não é adicionado ao JSON.
+ * @param batteryPercentage A porcentagem da bateria. Se negativo, não é adicionado ao JSON.
+ * @param batteryVoltage A voltagem da bateria. Se negativo, não é adicionado ao JSON.
  * @return Uma `String` contendo o objeto JSON completo do log.
  */
-String criarJsonLog(const String& mensagem, const String& status, int distancia = -1) {
+String criarJsonLog(const String& mensagem, const String& status, int distancia = -1, float batteryPercentage = -1.0, float batteryVoltage = -1.0) {
   JsonDocument doc;
   struct tm timeinfo;
 
@@ -42,6 +48,12 @@ String criarJsonLog(const String& mensagem, const String& status, int distancia 
 
   if (distancia >= 0) {
     doc["distancia"] = distancia;
+  }
+  if (batteryPercentage >= 0.0) {
+    doc["batteryPercentage"] = batteryPercentage;
+  }
+  if (batteryVoltage >= 0.0) {
+    doc["batteryVoltage"] = batteryVoltage;
   }
 
   String resultado;
@@ -74,9 +86,11 @@ bool iniciarSPIFFS() {
  * @param status O status do log.
  * @param topico O tópico MQTT para a publicação.
  * @param distancia O valor de distância opcional.
+ * @param batteryPercentage A porcentagem da bateria.
+ * @param batteryVoltage A voltagem da bateria.
  */
-void publishMessage(const String& mensagem, const String& status, const char* topico, int distancia) {
-  String logStr = criarJsonLog(mensagem, status, distancia);
+void publishMessage(const String& mensagem, const String& status, const char* topico, int distancia, float batteryPercentage, float batteryVoltage) {
+  String logStr = criarJsonLog(mensagem, status, distancia, batteryPercentage, batteryVoltage);
 
   Serial.println(logStr); // Imprime log no monitor serial (depuração)
 
@@ -97,6 +111,37 @@ void publishMessage(const String& mensagem, const String& status, const char* to
     }
   }
 }
+
+void publicarLeituraDistancia(bool* conectado) {
+    long distancia = lerDistancia();
+
+    if (distancia < 0) {
+        publishMessage("Erro na leitura do sensor", "ERROR", topico_distancia);
+    } else {
+        String payload = String(distancia);
+        if (getMQTTClient().connected()) {
+            publishMessage("Distancia lida publicada via MQTT: " + payload, "SUCCESS", topico_distancia, distancia);
+        } else {
+            *conectado = false;
+            publishMessage("MQTT offline. Salvando distancia: " + payload, "ERROR", topico_distancia, distancia);
+        }
+    }
+    tentarEnviarLogsPendentes();
+}
+
+void publicarLeituraBateria(bool* conectado) {
+    float batteryPercentage, batteryVoltage;
+    lerDadosBateria(batteryPercentage, batteryVoltage);
+    String payload = "Bateria: " + String(batteryPercentage) + "% (" + String(batteryVoltage) + "V)";
+
+    if (getMQTTClient().connected()) {
+        publishMessage(payload, "SUCCESS", topico_bateria, -1, batteryPercentage, batteryVoltage);
+    } else {
+        *conectado = false;
+        publishMessage("MQTT offline. Salvando dados da bateria: " + payload, "ERROR", topico_bateria, -1, batteryPercentage, batteryVoltage);
+    }
+}
+
 
 /**
  * @brief Tenta reenviar logs pendentes do SPIFFS.

@@ -28,8 +28,31 @@
  * @param status O nível ou status do log (ex: "INFO", "ERROR", "SUCCESS"). O padrão é "INFO".
  * @param topico O tópico MQTT específico para onde a mensagem deve ser publicada. Se vazio, um tópico padrão será usado.
  * @param distancia Um valor numérico opcional, como a distância de um sensor, a ser incluído no log. O padrão é -1 (não incluído).
+ * @param batteryPercentage A porcentagem da bateria. O padrão é -1.0 (não incluído).
+ * @param batteryVoltage A voltagem da bateria. O padrão é -1.0 (não incluído).
  */
-void publishMessage(const String& mensagem, const String& status = "INFO", const char* topico = "", int distancia = -1);
+void publishMessage(const String& mensagem, const String& status = "INFO", const char* topico = "", int distancia = -1, float batteryPercentage = -1.0, float batteryVoltage = -1.0);
+
+/**
+ * @brief Orquestra a leitura e publicação dos dados do sensor de distância.
+ * @details Esta função lê a distância do sensor ultrassônico e publica o resultado em um
+ *          tópico MQTT específico. Se a conexão MQTT não estiver ativa, os dados são
+ *          salvos localmente para envio posterior.
+ * @param conectado Ponteiro para a flag de estado da conexão Wi-Fi. A função pode
+ *                  modificar este valor para `false` se a publicação MQTT falhar.
+ */
+void publicarLeituraDistancia(bool* conectado);
+
+/**
+ * @brief Orquestra a leitura e publicação dos dados da bateria.
+ * @details Esta função lê a voltagem e a porcentagem da bateria e publica os resultados em um
+ *          tópico MQTT específico. Se a conexão MQTT não estiver ativa, os dados são
+ *          salvos localmente para envio posterior.
+ * @param conectado Ponteiro para a flag de estado da conexão Wi-Fi. A função pode
+ *                  modificar este valor para `false` se a publicação MQTT falhar.
+ */
+void publicarLeituraBateria(bool* conectado);
+
 
 /**
  * @brief Tenta reenviar logs salvos localmente.
