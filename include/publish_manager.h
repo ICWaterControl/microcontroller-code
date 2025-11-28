@@ -18,22 +18,6 @@
 #include <ArduinoJson.h>
 
 /**
- * @brief Publica ou registra uma mensagem.
- * @details Esta função é o núcleo do sistema de logging. Ela constrói uma mensagem em formato JSON contendo
- *          timestamp, nível de log, origem, a mensagem em si e, opcionalmente, dados de um sensor (distância).
- *          A função então tenta publicar essa mensagem em um tópico MQTT. Se a publicação falhar (por exemplo,
- *          por falta de conexão), a mensagem é salva em um arquivo de log no sistema de arquivos SPIFFS para
- *          envio posterior. A função também imprime o log na porta serial para depuração.
- * @param mensagem A string da mensagem principal a ser registrada.
- * @param status O nível ou status do log (ex: "INFO", "ERROR", "SUCCESS"). O padrão é "INFO".
- * @param topico O tópico MQTT específico para onde a mensagem deve ser publicada. Se vazio, um tópico padrão será usado.
- * @param distancia Um valor numérico opcional, como a distância de um sensor, a ser incluído no log. O padrão é -1 (não incluído).
- * @param batteryPercentage A porcentagem da bateria. O padrão é -1.0 (não incluído).
- * @param batteryVoltage A voltagem da bateria. O padrão é -1.0 (não incluído).
- */
-void publishMessage(const String& mensagem, const String& status = "INFO", const char* topico = "", int distancia = -1, float batteryPercentage = -1.0, float batteryVoltage = -1.0);
-
-/**
  * @brief Orquestra a leitura e publicação dos dados do sensor de distância.
  * @details Esta função lê a distância do sensor ultrassônico e publica o resultado em um
  *          tópico MQTT específico. Se a conexão MQTT não estiver ativa, os dados são
@@ -53,16 +37,15 @@ void publicarLeituraDistancia(bool* conectado);
  */
 void publicarLeituraBateria(bool* conectado);
 
-
 /**
- * @brief Tenta reenviar logs salvos localmente.
- * @details Esta função verifica se há logs pendentes no arquivo de log do SPIFFS. Se houver, ela tenta
- *          reenviar cada log para o broker MQTT. Os logs que são enviados com sucesso são removidos do arquivo,
- *          enquanto os que falham permanecem para tentativas futuras. Isso garante que os logs não sejam perdidos
- *          se o dispositivo estiver offline. A operação é feita de forma atômica usando um arquivo temporário
- *          para evitar a perda de dados em caso de reinicialização.
+ * @brief Publica uma mensagem de log genérica do sistema.
+ * @details Usada para publicar eventos de status do sistema (ex: conexão WiFi, MQTT).
+ *          Cria um payload JSON e o envia para todos os publicadores configurados.
+ * @param mensagem A mensagem de log a ser enviada.
+ * @param status O status da mensagem (ex: "SUCCESS", "ERROR").
  */
-void tentarEnviarLogsPendentes();
+void publicarLogSistema(const String& mensagem, const String& status);
+
 
 /**
  * @brief Inicializa o sistema de arquivos SPIFFS.

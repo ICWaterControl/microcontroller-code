@@ -10,6 +10,7 @@
  #include "../include/main.h"
  #include "../include/battery_sensor.h"
  #include "../include/publish_manager.h"
+ #include "../include/mqtt_publisher.h"
 
 
 // --- Configurações da Rede e Servidores ---
@@ -84,6 +85,9 @@ void loop() {
     ultimaLeitura = agora;
     publicarLeituraDistancia(&conectado);
     publicarLeituraBateria(&conectado);
+    if (conectado) {
+        tentarEnviarLogsPendentes();
+    }
   }
 
   if (!conectado) {
