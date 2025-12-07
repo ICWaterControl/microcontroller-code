@@ -8,12 +8,13 @@
  */
 
  #include "../include/main.h"
+ #include "../include/battery_sensor.h"
+ #include "../include/publish_manager.h"
+
 
 // --- Configurações da Rede e Servidores ---
 
 // Credenciais da Rede Wi-Fi
-const char* ssid = "Wokwi-GUEST";
-const char* password = "";
 
 // Configurações do Broker MQTT
 const char* mqtt_server    = "0bbdda7fb11e4c4795c3e07e3ac1ff60.s1.eu.hivemq.cloud";
@@ -48,17 +49,19 @@ void setup() {
 
   Serial.println("ESP32 is running");
 
+  setupBatterySensor();
   iniciarSPIFFS();
   configurarSensor(trigPin, echoPin);
 
-  conectarWiFi(ssid, password, &conectado); 
+  conectarWiFi(&conectado); 
   sincronizarHorarioNTP();      
 
   configurarMQTT(mqtt_server, mqtt_port, mqtt_user, mqtt_password);
   conectarMQTT();            
 
   tentarEnviarLogsPendentes();
-  publicarDadosSensor(&conectado);
+  publicarLeituraDistancia(&conectado);
+  publicarLeituraBateria(&conectado);
 }
 
 /**
@@ -79,25 +82,16 @@ void loop() {
 
   if (agora - ultimaLeitura >= intervalo) {
     ultimaLeitura = agora;
-    publicarDadosSensor(&conectado);
+    publicarLeituraDistancia(&conectado);
+    publicarLeituraBateria(&conectado);
   }
 
-  /* Modularizar esse trecho */
   if (!conectado) {
-    reconectarWiFi(ssid, password, &conectado);
+    reconectarWiFi(&conectado);
     if (conectado) {
-
-      /* Modularizar esse trecho */
-      char message[128];
-      if (sizeof(ssid) > 108) {
-        ssid = "SSID muito longo";
-      }
-      snprintf(message, sizeof(message), "Reconectado na rede: %s", ssid);
-
-      publishMessage(String(message), "SUCCESS", "sistema/comunicacao/wifi");
-      sincronizarHorarioNTP();  
+      sincronizarHorarioNTP();
       configurarMQTT(mqtt_server, mqtt_port, mqtt_user, mqtt_password);
-      conectarMQTT();  
+      conectarMQTT();
     }
   }
 }

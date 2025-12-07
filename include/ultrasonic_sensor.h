@@ -1,49 +1,33 @@
 /**
  * @file ultrasonic_sensor.h
- * @brief Cabeçalho para o driver do sensor ultrassônico HC-SR04.
- * @details Este arquivo define a interface para o gerenciamento do sensor ultrassônico. Ele é responsável
- *          por abstrair a complexidade do hardware, fornecendo funções simples para configurar o sensor,
- *          realizar leituras de distância e publicar os dados obtidos.
+ * @brief Cabeçalho do driver e da lógica de publicação para o sensor ultrassônico.
+ * @details Este arquivo define a interface para as funções que controlam o sensor ultrassônico HC-SR04,
+ *          incluindo a configuração e a medição de distância.
  */
+
 #ifndef ULTRASONIC_SENSOR_H
 #define ULTRASONIC_SENSOR_H
 
-#include <array>
+#include <Arduino.h>
 
 /**
  * @brief Configura os pinos do sensor ultrassônico.
- * @details Esta função deve ser chamada uma vez durante a inicialização do sistema (na função `setup()`)
- *          para definir quais pinos do microcontrolador estão conectados aos pinos TRIG (disparo) e ECHO (eco)
- *          do sensor HC-SR04. A função configura o pino de trigger como uma saída digital e o pino de echo
- *          como uma entrada digital.
- * @param trig O número do pino digital do ESP32 conectado ao pino TRIG do sensor.
- * @param echo O número do pino digital do ESP32 conectado ao pino ECHO do sensor.
+ * @details Esta função inicializa os pinos de trigger e echo do sensor. Ela deve ser chamada
+ *          uma vez durante a fase de setup do programa para garantir que o hardware esteja
+ *          corretamente configurado antes de qualquer tentativa de leitura.
+ * @param trig Pino do microcontrolador conectado ao pino 'Trig' do sensor.
+ * @param echo Pino do microcontrolador conectado ao pino 'Echo' do sensor.
  */
 void configurarSensor(int trig, int echo);
 
 /**
- * @brief Realiza uma medição de distância com o sensor ultrassônico.
- * @details Esta função implementa o processo de medição de distância. Ela funciona da seguinte maneira:
- *          1. Envia um pulso de disparo de 10 microssegundos no pino TRIG.
- *          2. Aguarda o pino ECHO ir para o nível alto, indicando o recebimento do eco.
- *          3. Mede a duração do tempo em que o pino ECHO permanece em nível alto.
- *          4. Converte essa duração (em microssegundos) para centímetros usando a velocidade do som.
- *          A função inclui um timeout para evitar que o programa fique bloqueado caso o eco não seja detectado.
- * @return A distância medida em centímetros. Retorna -1 se a leitura exceder o tempo limite (timeout),
- *         indicando uma falha na medição.
+ * @brief Realiza uma medição de distância.
+ * @details Dispara o sensor ultrassônico e mede o tempo de retorno do pulso de eco para
+ *          calcular a distância de um objeto. A função contém a lógica de temporização
+ *          precisa para a comunicação com o sensor HC-SR04.
+ * @return A distância medida em centímetros. Retorna um valor negativo (-1) se a leitura
+ *         falhar (por exemplo, por timeout, indicando que nenhum objeto foi detectado no alcance).
  */
 long lerDistancia();
-
-/**
- * @brief Lê a distância e publica os dados do sensor.
- * @details Esta é uma função de alto nível que orquestra a leitura e a publicação dos dados. Ela chama
- *          `lerDistancia()` para obter a medição atual e, em seguida, formata e envia esses dados como um log.
- *          A função também lida com a lógica de registrar o sucesso ou a falha da publicação dos dados via MQTT.
- *          Além disso, ela tenta reenviar logs que possam estar pendentes de envios anteriores.
- * @param mudancaDetectada Ponteiro para uma variável booleana. A função definirá este valor como `true` se a
- *                         distância medida for diferente da anterior e estiver dentro de um limite válido,
- *                         caso contrário, definirá como `false`.
- */
-void publicarDadosSensor(bool* mudancaDetectada);
 
 #endif

@@ -7,6 +7,7 @@
  *          são registrados usando o `publish_manager`.
  */
 
+#include <WiFiManager.h>
 #include "../include/wifi_manager.h"
 #include "../include/publish_manager.h"
 
@@ -20,26 +21,26 @@ static const char* topico = "sistema/comunicacao/wifi";
  *          Durante a espera, pontos são impressos no monitor serial para fornecer feedback visual.
  *          Após a conexão bem-sucedida, uma mensagem de sucesso é publicada e a flag de estado
  *          `conectado` é atualizada para `true`.
- * @param ssid O SSID da rede.
- * @param password A senha da rede.
  * @param conectado Ponteiro para a flag de estado da conexão.
  */
-void conectarWiFi(const char* ssid, const char* password, bool* conectado) {
-  WiFi.begin(ssid, password);
-  Serial.print("[WiFi] Conectando");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+void conectarWiFi(bool* conectado) {
+  WiFiManager wm;
+  // wm.resetSettings(); // Descomente para limpar as configurações salvas
+  
+  bool res = wm.autoConnect("CaixaDagua_AP");
+  if(!res) {
+    publishMessage("Falha ao conectar ou tempo de configuração esgotado", "ERROR", topico);
+    *conectado = false;
+  } else {
+    char message[128];
+    const char* ssid = WiFi.SSID().c_str();
+    if (strlen(ssid) > 108) {
+      ssid = "SSID muito longo";
+    }
+    snprintf(message, sizeof(message), "Conectado na rede: %s", ssid);
+    publishMessage(String(message), "SUCCESS", topico);
+    *conectado = true;
   }
-  Serial.println();
-
-  char message[128];
-  if (sizeof(ssid) > 108) {
-    ssid = "SSID muito longo";
-  }
-  snprintf(message, sizeof(message), "Conectado na rede: %s", ssid);
-  publishMessage(String(message), "SUCCESS", topico);
-  *conectado = true;
 }
 
 /**
@@ -49,13 +50,15 @@ void conectarWiFi(const char* ssid, const char* password, bool* conectado) {
  *          `conectado` para `true`. A verificação real do status da conexão e a espera são tratadas
  *          em outras partes do código (potencialmente no loop principal ou na próxima chamada que
  *          dependa da rede), permitindo que o resto do sistema continue funcionando sem travar.
- * @param ssid O SSID da rede.
- * @param password A senha da rede.
  * @param conectado Ponteiro para a flag de estado da conexão.
  */
-void reconectarWiFi(const char* ssid, const char* password, bool* conectado) {
-  WiFi.begin(ssid, password);
-  *conectado = true;
+void reconectarWiFi(bool* conectado) {
+  if (WiFi.status() != WL_CONNECTED) {
+    *conectado = false;
+    // A biblioteca WiFiManager tentará se reconectar automaticamente.
+    // A lógica de reconexão manual não é mais necessária.
+    // Se a reconexão automática falhar, o portal será iniciado na próxima chamada de `conectarWiFi`.
+  }
 }
 
 /**
