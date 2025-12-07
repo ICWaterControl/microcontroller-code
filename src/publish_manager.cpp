@@ -8,28 +8,24 @@
 
 #include "../include/publish_manager.h"
 #include "../include/mqtt_manager.h"
+#include "../include/mqtt_publisher.h"
+#include "../include/google_sheets_publisher.h"
 #include "../include/ultrasonic_sensor.h"
 #include "../include/battery_sensor.h"
 
 // Tópicos MQTT
-static const char* topico_pendentes = "sistema/pendentes";
 static const char* topico_distancia = "sensor/distancia";
 static const char* topico_bateria = "sensor/bateria";
+static const char* topico_sistema = "sistema/log";
+
+// Protótipos de Funções Internas
+String criarJsonLog(const String& mensagem, const String& status, int distancia = -1, float batteryPercentage = -1.0, float batteryVoltage = -1.0);
+
 
 /**
  * @brief Cria uma string de log formatada em JSON.
- * @details Esta função interna é usada para construir a string JSON para cada log. Ela coleta o timestamp atual,
- *          a mensagem, o status e um valor de distância opcional. A estrutura do JSON é padronizada para facilitar
- *          o processamento por sistemas de backend. Se a obtenção do tempo local falhar, um valor de erro
- *          é inserido no campo de timestamp.
- * @param mensagem A mensagem principal do log.
- * @param status O status ou nível do log (ex: "INFO", "ERROR").
- * @param distancia Um valor de distância opcional a ser incluído. Se negativo, não é adicionado ao JSON.
- * @param batteryPercentage A porcentagem da bateria. Se negativo, não é adicionado ao JSON.
- * @param batteryVoltage A voltagem da bateria. Se negativo, não é adicionado ao JSON.
- * @return Uma `String` contendo o objeto JSON completo do log.
  */
-String criarJsonLog(const String& mensagem, const String& status, int distancia = -1, float batteryPercentage = -1.0, float batteryVoltage = -1.0) {
+String criarJsonLog(const String& mensagem, const String& status, int distancia, float batteryPercentage, float batteryVoltage) {
   JsonDocument doc;
   struct tm timeinfo;
 
@@ -63,10 +59,6 @@ String criarJsonLog(const String& mensagem, const String& status, int distancia 
 
 /**
  * @brief Inicializa o sistema de arquivos SPIFFS.
- * @details Implementação da função que monta o sistema de arquivos flash SPIFFS. A flag `true` em `SPIFFS.begin(true)`
- *          formata o sistema de arquivos se a montagem falhar, o que pode ser útil na primeira execução ou se o
- *          sistema de arquivos for corrompido. Uma falha na montagem é um erro crítico para a persistência de logs.
- * @return `true` se a inicialização for bem-sucedida, `false` caso contrário.
  */
 bool iniciarSPIFFS() {
   if (!SPIFFS.begin(true)) {
@@ -77,118 +69,55 @@ bool iniciarSPIFFS() {
 }
 
 /**
- * @brief Publica uma mensagem via MQTT ou a salva localmente.
- * @details Esta função primeiro cria a mensagem de log JSON chamando `criarJsonLog`. Em seguida, tenta publicar
- *          a mensagem no tópico MQTT especificado. Se o cliente MQTT estiver conectado e a publicação for bem-sucedida, 
- *          um log de sucesso é impresso. Caso contrário, a função abre (ou cria) o arquivo `/log.txt` no SPIFFS
- *          e anexa a mensagem de log a ele, garantindo que a informação não seja perdida.
- * @param mensagem A mensagem principal a ser publicada.
- * @param status O status do log.
- * @param topico O tópico MQTT para a publicação.
- * @param distancia O valor de distância opcional.
- * @param batteryPercentage A porcentagem da bateria.
- * @param batteryVoltage A voltagem da bateria.
+ * @brief Orquestra a publicação dos dados de distância.
  */
-void publishMessage(const String& mensagem, const String& status, const char* topico, int distancia, float batteryPercentage, float batteryVoltage) {
-  String logStr = criarJsonLog(mensagem, status, distancia, batteryPercentage, batteryVoltage);
-
-  Serial.println(logStr); // Imprime log no monitor serial (depuração)
-
-  auto& client = getMQTTClient(); 
-
-  // Tentar enviar o log via MQTT
-  if (client.connected() && client.publish(topico, logStr.c_str())) {
-    Serial.println("[MQTT] Log enviado com sucesso.");
-  } else {
-    // Se falhar, salva o log no memória Flash
-    File file = SPIFFS.open("/log.txt", FILE_APPEND);
-    if (file) {
-      file.println(logStr);
-      file.close();
-      Serial.println("[SPIFFS] Log salvo localmente.");
-    } else {
-      Serial.println("[SPIFFS] Erro ao salvar log.");
-    }
-  }
-}
-
 void publicarLeituraDistancia(bool* conectado) {
     long distancia = lerDistancia();
 
+    String jsonPayload;
     if (distancia < 0) {
-        publishMessage("Erro na leitura do sensor", "ERROR", topico_distancia);
+        jsonPayload = criarJsonLog("Erro na leitura do sensor", "ERROR");
     } else {
-        String payload = String(distancia);
-        if (getMQTTClient().connected()) {
-            publishMessage("Distancia lida publicada via MQTT: " + payload, "SUCCESS", topico_distancia, distancia);
-        } else {
-            *conectado = false;
-            publishMessage("MQTT offline. Salvando distancia: " + payload, "ERROR", topico_distancia, distancia);
-        }
+        String msg = "Distancia lida: " + String(distancia);
+        jsonPayload = criarJsonLog(msg, "SUCCESS", distancia);
     }
-    tentarEnviarLogsPendentes();
+    
+    Serial.println(jsonPayload);
+    publishToGoogleSheets(jsonPayload);
+    publishMqttMessage(topico_distancia, jsonPayload);
+    
+    // A verificação de conexão fica centralizada no loop principal
+    if (!getMQTTClient().connected()) {
+        *conectado = false;
+    }
 }
 
+/**
+ * @brief Orquestra a publicação dos dados da bateria.
+ */
 void publicarLeituraBateria(bool* conectado) {
     float batteryPercentage, batteryVoltage;
     lerDadosBateria(batteryPercentage, batteryVoltage);
-    String payload = "Bateria: " + String(batteryPercentage) + "% (" + String(batteryVoltage) + "V)";
+    
+    String msg = "Bateria: " + String(batteryPercentage) + "% (" + String(batteryVoltage) + "V)";
+    String jsonPayload = criarJsonLog(msg, "SUCCESS", -1, batteryPercentage, batteryVoltage);
 
-    if (getMQTTClient().connected()) {
-        publishMessage(payload, "SUCCESS", topico_bateria, -1, batteryPercentage, batteryVoltage);
-    } else {
+    Serial.println(jsonPayload);
+    publishToGoogleSheets(jsonPayload);
+    publishMqttMessage(topico_bateria, jsonPayload);
+
+    if (!getMQTTClient().connected()) {
         *conectado = false;
-        publishMessage("MQTT offline. Salvando dados da bateria: " + payload, "ERROR", topico_bateria, -1, batteryPercentage, batteryVoltage);
     }
 }
 
-
 /**
- * @brief Tenta reenviar logs pendentes do SPIFFS.
- * @details Esta função implementa a lógica de recuperação de logs. Ela lê o arquivo `/log.txt` linha por linha.
- *          Para cada linha (que é um log JSON), ela tenta publicar no tópico de logs pendentes. Se a publicação
- *          falhar, a linha é escrita em um arquivo temporário (`/temp_log.txt`). Após processar todas as linhas,
- *          o arquivo de log original é removido. Se alguma publicação falhou, o arquivo temporário é renomeado
- *          de volta para `/log.txt`, preservando os logs que não puderam ser enviados. Se tudo foi enviado com sucesso,
- *          o arquivo temporário é simplesmente removido.
+ * @brief Publica uma mensagem de log genérica do sistema.
  */
-void tentarEnviarLogsPendentes() {
-  auto& client = getMQTTClient(); 
-  
-  if (!SPIFFS.exists("/log.txt")) return;
+void publicarLogSistema(const String& mensagem, const String& status) {
+    String jsonPayload = criarJsonLog(mensagem, status);
 
-  File file = SPIFFS.open("/log.txt", "r");
-  File tempFile = SPIFFS.open("/temp_log.txt", FILE_WRITE);
-
-  if (!file || !tempFile) {
-    if (file) file.close();
-    return;
-  }
-
-  bool algumFalhou = false;
-  while (file.available()) {
-    String linha = file.readStringUntil('\n');
-    linha.trim();
-    if (linha.length() < 10) continue;
-
-    if (client.connected()) {
-      if (!client.publish(topico_pendentes, linha.c_str())) {
-        tempFile.println(linha);
-        algumFalhou = true;
-      }
-    } else {
-      tempFile.println(linha);
-      algumFalhou = true;
-    }
-  }
-
-  file.close();
-  tempFile.close();
-  SPIFFS.remove("/log.txt");
-
-  if (algumFalhou) {
-    SPIFFS.rename("/temp_log.txt", "/log.txt");
-  } else {
-    SPIFFS.remove("/temp_log.txt");
-  }
+    Serial.println(jsonPayload);
+    publishToGoogleSheets(jsonPayload);
+    publishMqttMessage(topico_sistema, jsonPayload);
 }

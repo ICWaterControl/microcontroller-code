@@ -37,9 +37,6 @@ static const char* _password;
 static const char* _server;
 static int _port;
 
-// Tópico para logs relacionados ao status da conexão MQTT.
-static const char* topico = "sistema/comunicacao/mqtt";
-
 /**
  * @brief Implementação da função de configuração do cliente MQTT.
  * @details Esta função armazena as informações do broker em variáveis estáticas locais e configura
@@ -89,14 +86,14 @@ bool conectarMQTT(unsigned long timeoutMs) { // Timeout padrão 30s
 
   while (!client.connected()) {
     if (client.connect("ESP32Client", _user, _password)) {
-      publishMessage("MQTT conectado com sucesso", "SUCCESS", topico);
+      publicarLogSistema("MQTT conectado com sucesso", "SUCCESS");
       return true;
     } else {
-      publishMessage("Falha ao conectar no MQTT. Código: " + String(client.state()), "ERROR", topico);
+      publicarLogSistema("Falha ao conectar no MQTT. Código: " + String(client.state()), "ERROR");
       delay(5000);
     }
     if (millis() - start > timeoutMs) {
-      publishMessage("Timeout ao tentar conectar MQTT", "ERROR", topico);
+      publicarLogSistema("Timeout ao tentar conectar MQTT", "ERROR");
       return false;
     }
   }

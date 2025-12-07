@@ -11,9 +11,6 @@
 #include "../include/wifi_manager.h"
 #include "../include/publish_manager.h"
 
-// Tópico MQTT para logs relacionados ao status da conexão Wi-Fi e NTP.
-static const char* topico = "sistema/comunicacao/wifi";
-
 /**
  * @brief Implementação da função de conexão inicial com a rede Wi-Fi.
  * @details A função chama `WiFi.begin()` para iniciar o processo de conexão. Em seguida, entra em um
@@ -29,7 +26,7 @@ void conectarWiFi(bool* conectado) {
   
   bool res = wm.autoConnect("CaixaDagua_AP");
   if(!res) {
-    publishMessage("Falha ao conectar ou tempo de configuração esgotado", "ERROR", topico);
+    publicarLogSistema("Falha ao conectar ou tempo de configuração esgotado", "ERROR");
     *conectado = false;
   } else {
     char message[128];
@@ -38,7 +35,7 @@ void conectarWiFi(bool* conectado) {
       ssid = "SSID muito longo";
     }
     snprintf(message, sizeof(message), "Conectado na rede: %s", ssid);
-    publishMessage(String(message), "SUCCESS", topico);
+    publicarLogSistema(String(message), "SUCCESS");
     *conectado = true;
   }
 }
@@ -76,11 +73,11 @@ bool sincronizarHorarioNTP() {
   struct tm timeinfo;
   for (int i = 0; i < 10; i++) {
     if (getLocalTime(&timeinfo)) {
-      publishMessage("Tempo NTP sincronizado com sucesso", "SUCCESS",  topico);
+      publicarLogSistema("Tempo NTP sincronizado com sucesso", "SUCCESS");
       return true;
     }
     delay(1000);
   }
-  publishMessage("Falha ao obter tempo via NTP", "ERROR",  topico);
+  publicarLogSistema("Falha ao obter tempo via NTP", "ERROR");
   return false;
 }
