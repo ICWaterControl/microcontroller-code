@@ -33,7 +33,7 @@ const int echoPin = 18; // Pino de eco (echo)
 static bool conectado;
 
 // Intervalo entre as leituras e publicações dos dados do sensor (em milissegundos)
-const unsigned long intervalo = 5000; // Ex: 5 segundos
+const int sleepTimeInSeconds = 1800; // Ex: 30 minutos
 
 /**
  * @brief Função de inicialização do sistema.
@@ -43,6 +43,8 @@ const unsigned long intervalo = 5000; // Ex: 5 segundos
  *          estabelece a conexão Wi-Fi, sincroniza o tempo com um servidor NTP, configura a conexão MQTT
  *          e, finalmente, realiza uma primeira tentativa de enviar logs antigos e publica a primeira
  *          leitura do sensor.
+ *          No contexto do deep sleep, esta função é executada a cada despertar do dispositivo,
+ *          garantindo que as conexões Wi-Fi e MQTT sejam restabelecidas antes de qualquer operação de publicação.
  */
 void setup() {
   Serial.begin(115200);
@@ -63,39 +65,19 @@ void setup() {
   tentarEnviarLogsPendentes();
   publicarLeituraDistancia(&conectado);
   publicarLeituraBateria(&conectado);
+  Serial.println("Entrando em modo deep sleep por 30 minutos...");
+  esp_sleep_enable_timer_wakeup(sleepTimeInSeconds * 1000000);
+  esp_deep_sleep_start();
 }
 
 /**
  * @brief Função de loop principal do sistema.
- * @details Esta função é o coração do programa, executada repetidamente após a conclusão da `setup()`.
- *          Suas responsabilidades são:
- *          1. Manter o cliente MQTT ativo, processando mensagens de entrada e mantendo a conexão viva (`getMQTTClient().loop()`).
- *          2. Verificar periodicamente se o intervalo de leitura do sensor foi atingido para realizar e publicar uma nova medição.
- *          3. Monitorar o estado da conexão Wi-Fi (`conectado`). Se a conexão for perdida, ela tentará se reconectar
- *             e, uma vez reconectada, reiniciará a sincronização de tempo e a conexão MQTT.
- *          Esta abordagem garante que o sistema seja resiliente a falhas de rede.
+ * @details Com a implementação do modo deep sleep, esta função não é utilizada,
+ *          pois o dispositivo não fica em um loop contínuo. A lógica principal é executada
+ *          na função `setup()` a cada despertar do dispositivo. As tentativas de reconexão
+ *          Wi-Fi e MQTT, assim como outras rotinas de manutenção, são realizadas no `setup()`
+ *          a cada ciclo de despertar.
  */
 void loop() {
-  static unsigned long ultimaLeitura = 0;
-  unsigned long agora = millis();
-
-  getMQTTClient().loop();
-
-  if (agora - ultimaLeitura >= intervalo) {
-    ultimaLeitura = agora;
-    publicarLeituraDistancia(&conectado);
-    publicarLeituraBateria(&conectado);
-    if (conectado) {
-        tentarEnviarLogsPendentes();
-    }
-  }
-
-  if (!conectado) {
-    reconectarWiFi(&conectado);
-    if (conectado) {
-      sincronizarHorarioNTP();
-      configurarMQTT(mqtt_server, mqtt_port, mqtt_user, mqtt_password);
-      conectarMQTT();
-    }
-  }
+  // O loop fica vazio, pois o dispositivo estará em deep sleep.
 }

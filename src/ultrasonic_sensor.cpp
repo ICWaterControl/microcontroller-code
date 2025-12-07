@@ -41,23 +41,39 @@ void configurarSensor(int trig, int echo) {
 
 /**
  * @brief Implementação da função de leitura de distância.
- * @details Esta função executa o ciclo de medição do sensor ultrassônico:
- *          1. Garante que o pino de trigger esteja em nível baixo.
- *          2. Envia um pulso de disparo (nível alto) com a duração definida por `TRIGGER_PULSE_DURATION_US`.
- *          3. Retorna o pino de trigger para o nível baixo.
- *          4. Usa a função `pulseIn` para medir o tempo que o pino de eco permanece em nível alto, com um timeout
- *             definido por `PULSEIN_TIMEOUT_US`.
- *          5. Se `pulseIn` retornar 0 (timeout), a função retorna -1. Caso contrário, a duração é dividida
- *             pelo `SOUND_SPEED_DIVISOR` para obter a distância em centímetros.
- * @return A distância medida em cm, ou -1 em caso de falha na leitura (timeout).
+ * @details Esta função executa o ciclo de medição do sensor ultrassônico 5 vezes,
+ *          com um intervalo de 1 segundo entre cada leitura, para obter uma medição mais estável.
+ *          1.  Itera 5 vezes para coletar as amostras.
+ *          2.  Em cada iteração, envia um pulso de trigger e mede a duração do pulso de eco.
+ *          3.  Converte a duração em distância. Leituras inválidas (timeout) são descartadas.
+ *          4.  Calcula a média das leituras válidas.
+ *          5.  Aguarda 1 segundo antes da próxima leitura.
+ * @return A distância média medida em cm, ou -1 se todas as leituras falharem.
  */
 long lerDistancia() {
-    digitalWrite(trigPin, LOW);
-    delayMicroseconds(2);
-    digitalWrite(trigPin, HIGH);
-    delayMicroseconds(TRIGGER_PULSE_DURATION_US);
-    digitalWrite(trigPin, LOW);
+    long total_distance = 0;
+    int valid_readings = 0;
 
-    long duration = pulseIn(echoPin, HIGH, PULSEIN_TIMEOUT_US);
-    return (duration == 0) ? -1 : duration / SOUND_SPEED_DIVISOR;
+    for (int i = 0; i < 5; i++) {
+        digitalWrite(trigPin, LOW);
+        delayMicroseconds(2);
+        digitalWrite(trigPin, HIGH);
+        delayMicroseconds(TRIGGER_PULSE_DURATION_US);
+        digitalWrite(trigPin, LOW);
+
+        long duration = pulseIn(echoPin, HIGH, PULSEIN_TIMEOUT_US);
+        long distance = (duration == 0) ? -1 : duration / SOUND_SPEED_DIVISOR;
+
+        if (distance != -1) {
+            total_distance += distance;
+            valid_readings++;
+        }
+        delay(1000); // Espera 1 segundo entre as leituras
+    }
+
+    if (valid_readings > 0) {
+        return total_distance / valid_readings;
+    } else {
+        return -1; // Retorna -1 se todas as leituras falharem
+    }
 }
