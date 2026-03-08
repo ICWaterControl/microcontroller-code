@@ -12,16 +12,25 @@ static const int SCL_PIN = 22;
 
 void setupBatterySensor() {
     Wire.begin(SDA_PIN, SCL_PIN);
-    Serial.println("Initializing Battery Sensor...");
+    //Serial.println("Initializing Battery Sensor...");
     
     if (fuelGauge.begin() == false) {
-        Serial.println("Error: Battery Sensor MAX1704x not found. Please check wiring.");
-    } else {
-        Serial.println("Battery Sensor MAX1704x initialized.");
-    }
+        //Serial.println("Error: Battery Sensor MAX1704x not found. Please check wiring.");
+        return;
+    } 
+
+    //Serial.println("Battery Sensor MAX1704x initialized.");
 }
 
-void lerDadosBateria(float& percentage, float& voltage) {
+void sleepBaterrySensor() {
+    fuelGauge.sleep();
+    Wire.endTransmission();
+    Wire.end();
+}
+
+void lerDadosBateria(volatile float& percentage, volatile float& voltage) {
     percentage = fuelGauge.getSOC();
     voltage = fuelGauge.getVoltage();
+    
+    Serial.printf("[BATTERY] Percentage: %.2f | Voltage: %.2f\n", percentage, voltage);
 }

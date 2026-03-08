@@ -7,33 +7,34 @@
  *          a leitura dos sensores, a manutenção da conectividade e a publicação dos dados.
  */
 
- #include "../include/main.h"
- #include "../include/battery_sensor.h"
- #include "../include/publish_manager.h"
- #include "../include/mqtt_publisher.h"
-
+#include "../include/main.h"
+#include "../include/battery_sensor.h"
+#include "../include/publish_manager.h"
+#include "../include/mqtt_publisher.h"
 
 // --- Configurações da Rede e Servidores ---
 
 // Credenciais da Rede Wi-Fi
 
 // Configurações do Broker MQTT
-const char* mqtt_server    = "0bbdda7fb11e4c4795c3e07e3ac1ff60.s1.eu.hivemq.cloud";
-const int   mqtt_port      = 8883;
-const char* mqtt_user      = "Pedro";
-const char* mqtt_password  = "Luciene.456";
+const char *mqtt_server = "0bbdda7fb11e4c4795c3e07e3ac1ff60.s1.eu.hivemq.cloud";
+const int mqtt_port = 8883;
+const char *mqtt_user = "Pedro";
+const char *mqtt_password = "Luciene.456";
 
 // --- Pinos e Constantes Globais ---
 
 // Pinos do Sensor Ultrassônico
-const int trigPin = 5; // Pino de disparo (trigger)
-const int echoPin = 18; // Pino de eco (echo)
+const uint8_t trigPin = 5;  // Pino de disparo (trigger)
+const uint8_t echoPin = 18; // Pino de eco (echo)
 
 // Variável global para monitorar o estado da conexão Wi-Fi
 static bool conectado;
 
-// Intervalo entre as leituras e publicações dos dados do sensor (em milissegundos)
-const int sleepTimeInSeconds = 1800; // Ex: 30 minutos
+// Intervalo entre as leituras e publicações dos dados do sensor (em segundos)
+#define uS_TO_S_FACTOR 1000000ULL
+constexpr int SLEEP_TIME_IN_SECONDS = 10; 
+constexpr int TIME_TO_SLEEP = SLEEP_TIME_IN_SECONDS * uS_TO_S_FACTOR;
 
 /**
  * @brief Função de inicialização do sistema.
@@ -46,27 +47,34 @@ const int sleepTimeInSeconds = 1800; // Ex: 30 minutos
  *          No contexto do deep sleep, esta função é executada a cada despertar do dispositivo,
  *          garantindo que as conexões Wi-Fi e MQTT sejam restabelecidas antes de qualquer operação de publicação.
  */
-void setup() {
-  Serial.begin(115200);
-  delay(500);
+void setup()
+{
+  setCpuFrequencyMhz(80);
 
-  Serial.println("ESP32 is running");
+  Serial.begin(115200);
+  delay(10);
+
+  //Serial.println("ESP32 is running");
 
   setupBatterySensor();
   iniciarSPIFFS();
   configurarSensor(trigPin, echoPin);
 
-  conectarWiFi(&conectado); 
-  sincronizarHorarioNTP();      
+  conectarWiFi(conectado);
+  sincronizarHorarioNTP();
 
   configurarMQTT(mqtt_server, mqtt_port, mqtt_user, mqtt_password);
-  conectarMQTT();            
+  conectarMQTT();
 
   tentarEnviarLogsPendentes();
-  publicarLeituraDistancia(&conectado);
-  publicarLeituraBateria(&conectado);
-  Serial.println("Entrando em modo deep sleep por 30 minutos...");
-  esp_sleep_enable_timer_wakeup(sleepTimeInSeconds * 1000000);
+  publicarLeituraDistancia(conectado);
+  publicarLeituraBateria(conectado);
+
+  sleepBaterrySensor();
+
+  //Serial.println("Entrando em modo deep sleep por 10 segundos...");
+  gpio_deep_sleep_hold_en();
+  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP);
   esp_deep_sleep_start();
 }
 
@@ -78,6 +86,6 @@ void setup() {
  *          Wi-Fi e MQTT, assim como outras rotinas de manutenção, são realizadas no `setup()`
  *          a cada ciclo de despertar.
  */
-void loop() {
-  // O loop fica vazio, pois o dispositivo estará em deep sleep.
+void loop()
+{
 }

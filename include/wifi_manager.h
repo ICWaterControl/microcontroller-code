@@ -15,7 +15,7 @@
  *                  for bem-sucedida. Isso permite que o estado da conexão seja compartilhado com outras
  *                  parte do sistema.
  */
-void conectarWiFi(bool* conectado);
+void conectarWiFi(bool& conectado);
 
 /**
  * @brief Verifica e, se necessário, restabelece a conexão com a rede Wi-Fi.
@@ -27,7 +27,7 @@ void conectarWiFi(bool* conectado);
  * @param conectado Um ponteiro para a variável booleana que armazena o estado da conexão. A função atualizará
  *                  este valor para `true` na reconexão ou o manterá como `false` se a tentativa falhar.
  */
-void reconectarWiFi(bool* conectado);
+void reconectarWiFi(bool& conectado);
 
 /**
  * @brief Sincroniza o relógio do dispositivo com um servidor de tempo da rede (NTP).

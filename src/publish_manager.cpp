@@ -71,7 +71,7 @@ bool iniciarSPIFFS() {
 /**
  * @brief Orquestra a publicação dos dados de distância.
  */
-void publicarLeituraDistancia(bool* conectado) {
+void publicarLeituraDistancia(bool& conectado) {
     long distancia = lerDistancia();
 
     String jsonPayload;
@@ -88,14 +88,14 @@ void publicarLeituraDistancia(bool* conectado) {
     
     // A verificação de conexão fica centralizada no loop principal
     if (!getMQTTClient().connected()) {
-        *conectado = false;
+        conectado = false;
     }
 }
 
 /**
  * @brief Orquestra a publicação dos dados da bateria.
  */
-void publicarLeituraBateria(bool* conectado) {
+void publicarLeituraBateria(bool& conectado) {
     float batteryPercentage, batteryVoltage;
     lerDadosBateria(batteryPercentage, batteryVoltage);
     
@@ -107,7 +107,7 @@ void publicarLeituraBateria(bool* conectado) {
     publishMqttMessage(topico_bateria, jsonPayload);
 
     if (!getMQTTClient().connected()) {
-        *conectado = false;
+        conectado = false;
     }
 }
 
@@ -118,6 +118,6 @@ void publicarLogSistema(const String& mensagem, const String& status) {
     String jsonPayload = criarJsonLog(mensagem, status);
 
     Serial.println(jsonPayload);
-    publishToGoogleSheets(jsonPayload);
+    //publishToGoogleSheets(jsonPayload);
     publishMqttMessage(topico_sistema, jsonPayload);
 }

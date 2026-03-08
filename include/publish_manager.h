@@ -25,7 +25,7 @@
  * @param conectado Ponteiro para a flag de estado da conexão Wi-Fi. A função pode
  *                  modificar este valor para `false` se a publicação MQTT falhar.
  */
-void publicarLeituraDistancia(bool* conectado);
+void publicarLeituraDistancia(bool& conectado);
 
 /**
  * @brief Orquestra a leitura e publicação dos dados da bateria.
@@ -35,7 +35,7 @@ void publicarLeituraDistancia(bool* conectado);
  * @param conectado Ponteiro para a flag de estado da conexão Wi-Fi. A função pode
  *                  modificar este valor para `false` se a publicação MQTT falhar.
  */
-void publicarLeituraBateria(bool* conectado);
+void publicarLeituraBateria(bool& conectado);
 
 /**
  * @brief Publica uma mensagem de log genérica do sistema.

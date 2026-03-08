@@ -8,12 +8,14 @@
  */
 void setupBatterySensor();
 
+void sleepBaterrySensor();
+
 /**
  * @brief Lê os dados do sensor de bateria.
  * @details Obtém a porcentagem do estado de carga (SOC) e a voltagem da bateria.
  * @param percentage Referência para uma variável float onde a porcentagem será armazenada.
  * @param voltage Referência para uma variável float onde a voltagem será armazenada.
  */
-void lerDadosBateria(float& percentage, float& voltage);
+void lerDadosBateria(volatile float& percentage, volatile float& voltage);
 
 #endif

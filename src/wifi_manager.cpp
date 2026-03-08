@@ -20,41 +20,28 @@
  *          `conectado` é atualizada para `true`.
  * @param conectado Ponteiro para a flag de estado da conexão.
  */
-void conectarWiFi(bool* conectado) {
+void conectarWiFi(bool& conectado)
+{
   WiFiManager wm;
-  // wm.resetSettings(); // Descomente para limpar as configurações salvas
-  
+  //wm.resetSettings(); // Descomente para limpar as configurações salvas
+
   bool res = wm.autoConnect("CaixaDagua_AP");
-  if(!res) {
+  if (!res)
+  {
     publicarLogSistema("Falha ao conectar ou tempo de configuração esgotado", "ERROR");
-    *conectado = false;
-  } else {
+    conectado = false;
+  }
+  else
+  {
     char message[128];
-    const char* ssid = WiFi.SSID().c_str();
-    if (strlen(ssid) > 108) {
+    const char *ssid = WiFi.SSID().c_str();
+    if (strlen(ssid) > 108)
+    {
       ssid = "SSID muito longo";
     }
     snprintf(message, sizeof(message), "Conectado na rede: %s", ssid);
     publicarLogSistema(String(message), "SUCCESS");
-    *conectado = true;
-  }
-}
-
-/**
- * @brief Implementação da função de reconexão com a rede Wi-Fi.
- * @details Esta função é projetada para ser não-bloqueante. Ela simplesmente chama `WiFi.begin()`
- *          para iniciar uma nova tentativa de conexão em segundo plano e imediatamente atualiza a flag
- *          `conectado` para `true`. A verificação real do status da conexão e a espera são tratadas
- *          em outras partes do código (potencialmente no loop principal ou na próxima chamada que
- *          dependa da rede), permitindo que o resto do sistema continue funcionando sem travar.
- * @param conectado Ponteiro para a flag de estado da conexão.
- */
-void reconectarWiFi(bool* conectado) {
-  if (WiFi.status() != WL_CONNECTED) {
-    *conectado = false;
-    // A biblioteca WiFiManager tentará se reconectar automaticamente.
-    // A lógica de reconexão manual não é mais necessária.
-    // Se a reconexão automática falhar, o portal será iniciado na próxima chamada de `conectarWiFi`.
+    conectado = true;
   }
 }
 
@@ -68,11 +55,14 @@ void reconectarWiFi(bool* conectado) {
  *          função retorna `false`.
  * @return `true` se a sincronização for bem-sucedida, `false` caso contrário.
  */
-bool sincronizarHorarioNTP() {
+bool sincronizarHorarioNTP()
+{
   configTime(-3 * 3600, 0, "pool.ntp.org", "time.nist.gov");
   struct tm timeinfo;
-  for (int i = 0; i < 10; i++) {
-    if (getLocalTime(&timeinfo)) {
+  for (int i = 0; i < 10; i++)
+  {
+    if (getLocalTime(&timeinfo))
+    {
       publicarLogSistema("Tempo NTP sincronizado com sucesso", "SUCCESS");
       return true;
     }
