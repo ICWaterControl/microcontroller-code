@@ -33,7 +33,7 @@ static bool conectado;
 
 // Intervalo entre as leituras e publicações dos dados do sensor (em segundos)
 #define uS_TO_S_FACTOR 1000000ULL
-constexpr int SLEEP_TIME_IN_SECONDS = 1800; 
+constexpr int SLEEP_TIME_IN_SECONDS = 1800; // 30 minutos
 constexpr int TIME_TO_SLEEP = SLEEP_TIME_IN_SECONDS * uS_TO_S_FACTOR;
 
 /**
@@ -51,29 +51,29 @@ void setup()
 {
   setCpuFrequencyMhz(80);
 
-  //Serial.begin(115200);
+  // Serial.begin(115200);
   delay(10);
 
-  //Serial.println("ESP32 is running");
+  // Serial.println("ESP32 is running");
 
   setupBatterySensor();
   iniciarSPIFFS();
   configurarSensor(trigPin, echoPin);
 
   conectarWiFi(conectado); // Conecta WiFi
-  btStop(); // Desativa o Bluetooth
+  btStop();                // Desativa o Bluetooth
   sincronizarHorarioNTP();
 
   configurarMQTT(mqtt_server, mqtt_port, mqtt_user, mqtt_password);
   conectarMQTT();
 
-  //tentarEnviarLogsPendentes();
-  //publicarLeituraDistancia(conectado);
+  tentarEnviarLogsPendentes();
+  publicarLeituraDistancia(conectado);
   publicarLeituraBateria(conectado);
 
   sleepBaterrySensor();
 
-  //Serial.println("Entrando em modo deep sleep por 10 segundos...");
+  // Serial.println("Entrando em modo deep sleep por 10 segundos...");
   gpio_deep_sleep_hold_en();
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP);
   esp_deep_sleep_start();
