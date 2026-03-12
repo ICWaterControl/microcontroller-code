@@ -16,7 +16,7 @@ void publishMqttMessage(const char* topic, const String& jsonPayload) {
 
   // Tenta enviar o log via MQTT
   if (client.connected() && client.publish(topic, jsonPayload.c_str())) {
-    Serial.println("[MQTT] Log enviado com sucesso.");
+    //Serial.println("[MQTT] Log enviado com sucesso.");
   } else {
     // Se falhar, salva o log na memória Flash
     File file = SPIFFS.open("/log.txt", FILE_APPEND);
@@ -24,9 +24,9 @@ void publishMqttMessage(const char* topic, const String& jsonPayload) {
       // Salva o tópico junto com o payload para reenvio posterior
       file.println(String(topic) + "|" + jsonPayload);
       file.close();
-      Serial.println("[SPIFFS] Log salvo localmente.");
+      //Serial.println("[SPIFFS] Log salvo localmente.");
     } else {
-      Serial.println("[SPIFFS] Erro ao salvar log.");
+      //Serial.println("[SPIFFS] Erro ao salvar log.");
     }
   }
 }
@@ -65,7 +65,7 @@ void tentarEnviarLogsPendentes() {
         tempFile.println(linha); // Salva a linha original se falhar
         algumFalhou = true;
       } else {
-        Serial.println("[MQTT] Log pendente reenviado com sucesso.");
+        //Serial.println("[MQTT] Log pendente reenviado com sucesso.");
       }
     } else {
       tempFile.println(linha); // Salva a linha original se offline

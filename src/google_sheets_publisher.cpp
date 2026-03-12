@@ -24,14 +24,14 @@ void publishToGoogleSheets(const String& jsonPayload) {
 
     if (httpResponseCode > 0) {
       String response = http.getString();
-      Serial.println("[Google Sheets] HTTP Response code: " + String(httpResponseCode));
-      Serial.println(response);
+      //Serial.println("[Google Sheets] HTTP Response code: " + String(httpResponseCode));
+      //Serial.println(response);
     } else {
-      Serial.println("[Google Sheets] Error on sending POST: " + String(httpResponseCode));
+      //Serial.println("[Google Sheets] Error on sending POST: " + String(httpResponseCode));
     }
 
     http.end();
   } else {
-    Serial.println("[Google Sheets] WiFi not connected, skipping send.");
+    //Serial.println("[Google Sheets] WiFi not connected, skipping send.");
   }
 }

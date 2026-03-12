@@ -8,6 +8,7 @@
  */
 
 #include <WiFiManager.h>
+#include <esp_wifi.h>
 #include "../include/wifi_manager.h"
 #include "../include/publish_manager.h"
 
@@ -24,6 +25,12 @@ void conectarWiFi(bool& conectado)
 {
   WiFiManager wm;
   //wm.resetSettings(); // Descomente para limpar as configurações salvas
+
+  // Configura o IP estático no WiFiManager
+  /*IPAddress _ip      = IPAddress(192, 168, 1, 184);
+  IPAddress _gw      = IPAddress(192, 168, 1, 1);
+  IPAddress _sn      = IPAddress(255, 255, 255, 0);
+  wm.setSTAStaticIPConfig(_ip, _gw, _sn);*/
 
   bool res = wm.autoConnect("CaixaDagua_AP");
   if (!res)
@@ -42,6 +49,8 @@ void conectarWiFi(bool& conectado)
     snprintf(message, sizeof(message), "Conectado na rede: %s", ssid);
     publicarLogSistema(String(message), "SUCCESS");
     conectado = true;
+
+    esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
   }
 }
 

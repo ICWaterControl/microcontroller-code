@@ -62,7 +62,7 @@ String criarJsonLog(const String& mensagem, const String& status, int distancia,
  */
 bool iniciarSPIFFS() {
   if (!SPIFFS.begin(true)) {
-    Serial.println("[SPIFFS] Falha ao montar SPIFFS");
+    //Serial.println("[SPIFFS] Falha ao montar SPIFFS");
     return false;
   }
   return true;
@@ -82,7 +82,7 @@ void publicarLeituraDistancia(bool& conectado) {
         jsonPayload = criarJsonLog(msg, "SUCCESS", distancia);
     }
     
-    Serial.println(jsonPayload);
+    //Serial.println(jsonPayload);
     publishToGoogleSheets(jsonPayload);
     publishMqttMessage(topico_distancia, jsonPayload);
     
@@ -102,7 +102,7 @@ void publicarLeituraBateria(bool& conectado) {
     String msg = "Bateria: " + String(batteryPercentage) + "% (" + String(batteryVoltage) + "V)";
     String jsonPayload = criarJsonLog(msg, "SUCCESS", -1, batteryPercentage, batteryVoltage);
 
-    Serial.println(jsonPayload);
+    //Serial.println(jsonPayload);
     publishToGoogleSheets(jsonPayload);
     publishMqttMessage(topico_bateria, jsonPayload);
 
@@ -117,7 +117,7 @@ void publicarLeituraBateria(bool& conectado) {
 void publicarLogSistema(const String& mensagem, const String& status) {
     String jsonPayload = criarJsonLog(mensagem, status);
 
-    Serial.println(jsonPayload);
+    //Serial.println(jsonPayload);
     //publishToGoogleSheets(jsonPayload);
     publishMqttMessage(topico_sistema, jsonPayload);
 }
