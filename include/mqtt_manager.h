@@ -15,16 +15,12 @@
 /**
  * @brief Configura os parâmetros de conexão do cliente MQTT.
  * @details Esta função deve ser chamada uma vez na inicialização do sistema, antes da primeira tentativa de conexão.
- *          Ela armazena as informações do broker (servidor, porta e credenciais) e configura o cliente MQTT
- *          subjacente (PubSubClient) para usar esses parâmetros. A função também lida com a configuração
- *          da camada de transporte segura (WiFiClientSecure), desabilitando a verificação de certificado
- *          do servidor para simplificar a conexão em ambientes de desenvolvimento (setInsecure).
- * @param server O endereço IP ou hostname do broker MQTT.
- * @param port A porta de conexão do broker (geralmente 1883 para TCP ou 8883 para TLS).
- * @param user O nome de usuário para autenticação no broker.
- * @param password A senha correspondente ao nome de usuário.
+ *          Ela armazena as informações do broker e configura o cliente MQTT subjacente (PubSubClient) para usar
+ *          TLS mútuo com certificado raiz, certificado do dispositivo e chave privada.
+ * @param server O endereço hostname do broker MQTT.
+ * @param port A porta de conexão do broker (8883 para TLS).
  */
-void configurarMQTT(const char* server, int port, const char* user, const char* password);
+void configurarMQTT(const char* server, int port);
 
 /**
  * @brief Obtém uma referência para a instância global do cliente MQTT.

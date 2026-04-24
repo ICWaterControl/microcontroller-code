@@ -6,7 +6,7 @@ Este repositório contém o firmware de um sistema embarcado para o monitorament
 
 ## 🎯 Sobre o Projeto
 
-O objetivo principal é desenvolver uma solução IoT de baixo custo para medir o nível da água utilizando um sensor ultrassônico e transmitir esses dados para a nuvem. O sistema se conecta a uma rede Wi-Fi, envia os dados formatados em JSON para um broker MQTT (HiveMQ Cloud) e inclui funcionalidades de resiliência, como armazenamento local de dados em caso de falha de conexão.
+O objetivo principal é desenvolver uma solução IoT de baixo custo para medir o nível da água utilizando um sensor ultrassônico e transmitir esses dados para a nuvem. O sistema se conecta a uma rede Wi-Fi, envia os dados formatados em JSON para o AWS IoT Core e inclui funcionalidades de resiliência, como armazenamento local de dados em caso de falha de conexão.
 
 ---
 
@@ -14,7 +14,7 @@ O objetivo principal é desenvolver uma solução IoT de baixo custo para medir 
 
 -   **Medição de Nível:** Leitura da distância da lâmina d’água com sensor ultrassônico.
 -   **Conectividade:** Conexão a redes Wi-Fi com tratamento de reconexão automática.
--   **Comunicação MQTT:** Envio de dados para o broker HiveMQ Cloud usando protocolo seguro (TLS/SSL).
+-   **Comunicação MQTT:** Envio de dados para o AWS IoT Core usando protocolo seguro (TLS/SSL com certificado de dispositivo).
 -   **Sincronização de Tempo:** Obtenção de timestamp via NTP para registros precisos.
 -   **Formato de Dados:** Empacotamento das informações em formato JSON para fácil integração.
 -   **Resiliência:** Armazenamento temporário de medições no sistema de arquivos SPIFFS em caso de falha de conexão, com envio posterior.
@@ -60,17 +60,19 @@ Siga os passos abaixo para compilar e executar o projeto.
     -   Com o VS Code aberto, clique em `File > Open Folder...` e selecione a pasta do projeto.
     -   O PlatformIO irá reconhecer o `platformio.ini` e instalar as dependências automaticamente.
 
-3.  **Configure as credenciais MQTT:**
-    -   Abra o arquivo `src/main.cpp`.
-    -   Localize e altere as seguintes variáveis com as suas informações:
+3.  **Configure as credenciais do AWS IoT Core:**
+    -   Abra o arquivo `include/aws_iot_config.h`.
+    -   Localize e altere os seguintes campos com os valores do seu ambiente:
 
     ```cpp
-    // Configurações do Broker MQTT (HiveMQ Cloud ou outro)
-    const char* mqtt_server    = "SEU_BROKER_URL";
-    const int   mqtt_port      = 8883;
-    const char* mqtt_user      = "SEU_USUARIO_MQTT";
-    const char* mqtt_password  = "SUA_SENHA_MQTT";
+    static const char AWS_IOT_ENDPOINT[] = "SEU_ENDPOINT_DO_AWS_IOT_CORE";
+    static const char AWS_IOT_CLIENT_ID[] = "SEU_CLIENT_ID";
+    static const char AWS_IOT_ROOT_CA[] PROGMEM = R"EOF(... )EOF";
+    static const char AWS_IOT_DEVICE_CERT[] PROGMEM = R"EOF(... )EOF";
+    static const char AWS_IOT_PRIVATE_KEY[] PROGMEM = R"EOF(... )EOF";
     ```
+
+    -   O firmware usa a porta `8883` por padrão para MQTT com TLS.
 
 4.  **Compile e envie para o ESP32:**
     -   Conecte o ESP32 ao seu computador.
@@ -94,13 +96,18 @@ Siga os passos abaixo para compilar e executar o projeto.
 .
 ├── include/                # Arquivos de cabeçalho (.h)
 │   ├── mqtt_manager.h
+│   ├── aws_iot_config.h
+│   ├── battery_sensor.h
+│   ├── mqtt_publisher.h
 │   ├── publish_manager.h
 │   ├── ultrasonic_sensor.h
 │   └── wifi_manager.h
 ├── lib/                    # Bibliotecas locais (se houver)
 ├── src/                    # Código-fonte (.cpp)
 │   ├── main.cpp            # Ponto de entrada e lógica principal
+│   ├── battery_sensor.cpp
 │   ├── mqtt_manager.cpp
+│   ├── mqtt_publisher.cpp
 │   ├── publish_manager.cpp
 │   ├── ultrasonic_sensor.cpp
 │   └── wifi_manager.cpp
@@ -116,15 +123,18 @@ Siga os passos abaixo para compilar e executar o projeto.
 
 ## 📡 Comunicação MQTT
 
--   **Broker:** HiveMQ Cloud (configurável)
+-   **Broker:** AWS IoT Core (configurável)
 -   **Protocolo:** MQTT com TLS/SSL
 -   **Formato da Mensagem:** JSON
 
 **Exemplo de payload:**
 ```json
 {
-  "timestamp": "2025-10-29T10:30:00Z",
-  "altura_lamina_agua": 12.5
+    "timestamp": "2026-04-24 10:30:00",
+    "status": "SUCCESS",
+    "origem": "esp32",
+    "mensagem": "Distancia lida: 123",
+    "distancia": 123
 }
 ```
 
@@ -134,10 +144,11 @@ Siga os passos abaixo para compilar e executar o projeto.
 
 O sistema utiliza os seguintes tópicos para comunicação:
 
--   `sistema/comunicacao/mqtt`: Logs e status da conexão MQTT.
--   `sistema/comunicacao/wifi`: Logs e status da conexão Wi-Fi.
--   `sensor/distancia`: Publicação dos dados de distância do sensor.
--   `sistema/pendentes`: Logs de mensagens pendentes enviadas após a reconexão.
+-   `sdk/test/java`: Publicação das medições de distância.
+-   `sdk/test/python`: Publicação das medições de bateria.
+-   `sdk/test/js`: Publicação de logs de sistema.
+
+Mensagens não publicadas são armazenadas localmente em SPIFFS (`/log.txt`) e reenviadas no próximo ciclo com conectividade.
 
 ---
 

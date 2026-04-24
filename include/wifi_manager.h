@@ -27,7 +27,7 @@ void conectarWiFi(bool& conectado);
  * @param conectado Um ponteiro para a variável booleana que armazena o estado da conexão. A função atualizará
  *                  este valor para `true` na reconexão ou o manterá como `false` se a tentativa falhar.
  */
-void reconectarWiFi(bool& conectado);
+void reconectarWiFi(bool& conectado, unsigned long timeoutMs = 15000);
 
 /**
  * @brief Sincroniza o relógio do dispositivo com um servidor de tempo da rede (NTP).
@@ -37,6 +37,6 @@ void reconectarWiFi(bool& conectado);
  *          para garantir que todos os logs e eventos registrados tenham um timestamp preciso e consistente.
  * @return `true` se a sincronização de tempo for bem-sucedida, `false` caso contrário.
  */
-bool sincronizarHorarioNTP();
+bool sincronizarHorarioNTP(unsigned long timeoutMs = 10000);
 
 #endif

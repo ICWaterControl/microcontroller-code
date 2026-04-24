@@ -9,14 +9,13 @@
 #include "../include/publish_manager.h"
 #include "../include/mqtt_manager.h"
 #include "../include/mqtt_publisher.h"
-#include "../include/google_sheets_publisher.h"
 #include "../include/ultrasonic_sensor.h"
 #include "../include/battery_sensor.h"
 
 // Tópicos MQTT
-static const char* topico_distancia = "sensor/distancia";
-static const char* topico_bateria = "sensor/bateria";
-static const char* topico_sistema = "sistema/log";
+static const char* topico_distancia = "sdk/test/java";
+static const char* topico_bateria = "sdk/test/python";
+static const char* topico_sistema = "sdk/test/js";
 
 // Protótipos de Funções Internas
 String criarJsonLog(const String& mensagem, const String& status, int distancia = -1, float batteryPercentage = -1.0, float batteryVoltage = -1.0);
@@ -83,7 +82,6 @@ void publicarLeituraDistancia(bool& conectado) {
     }
     
     //Serial.println(jsonPayload);
-    publishToGoogleSheets(jsonPayload);
     publishMqttMessage(topico_distancia, jsonPayload);
     
     // A verificação de conexão fica centralizada no loop principal
@@ -103,7 +101,6 @@ void publicarLeituraBateria(bool& conectado) {
     String jsonPayload = criarJsonLog(msg, "SUCCESS", -1, batteryPercentage, batteryVoltage);
 
     //Serial.println(jsonPayload);
-    publishToGoogleSheets(jsonPayload);
     publishMqttMessage(topico_bateria, jsonPayload);
 
     if (!getMQTTClient().connected()) {
@@ -118,6 +115,5 @@ void publicarLogSistema(const String& mensagem, const String& status) {
     String jsonPayload = criarJsonLog(mensagem, status);
 
     //Serial.println(jsonPayload);
-    //publishToGoogleSheets(jsonPayload);
     publishMqttMessage(topico_sistema, jsonPayload);
 }

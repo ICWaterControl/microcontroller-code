@@ -4,7 +4,7 @@
 #include <SPIFFS.h>
 
 // Tópico MQTT para onde os logs pendentes serão enviados.
-static const char* topico_pendentes = "sistema/pendentes";
+static const char* topico_pendentes = "sdk/test/js";
 
 /**
  * @brief Publica uma mensagem em um tópico MQTT com fallback para SPIFFS.

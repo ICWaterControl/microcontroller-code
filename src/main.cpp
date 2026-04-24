@@ -11,16 +11,14 @@
 #include "../include/battery_sensor.h"
 #include "../include/publish_manager.h"
 #include "../include/mqtt_publisher.h"
+#include "../include/aws_iot_config.h"
 
 // --- Configurações da Rede e Servidores ---
 
 // Credenciais da Rede Wi-Fi
 
-// Configurações do Broker MQTT
-const char *mqtt_server = "0bbdda7fb11e4c4795c3e07e3ac1ff60.s1.eu.hivemq.cloud";
+// Configurações do Broker MQTT (AWS IoT Core)
 const int mqtt_port = 8883;
-const char *mqtt_user = "Pedro";
-const char *mqtt_password = "Luciene.456";
 
 // --- Pinos e Constantes Globais ---
 
@@ -35,6 +33,11 @@ static bool conectado;
 #define uS_TO_S_FACTOR 1000000ULL
 constexpr int SLEEP_TIME_IN_SECONDS = 1800; // 30 minutos
 constexpr int TIME_TO_SLEEP = SLEEP_TIME_IN_SECONDS * uS_TO_S_FACTOR;
+constexpr unsigned long NETWORK_BUDGET_MS = 12000;
+constexpr uint32_t NTP_SYNC_EVERY_CYCLES = 12;
+
+// Mantem o contador entre despertares de deep sleep.
+RTC_DATA_ATTR uint32_t wakeCycleCounter = 0;
 
 /**
  * @brief Função de inicialização do sistema.
@@ -60,20 +63,65 @@ void setup()
   iniciarSPIFFS();
   configurarSensor(trigPin, echoPin);
 
+  wakeCycleCounter++;
+  const bool shouldSyncNtp =
+      (wakeCycleCounter == 1) || (wakeCycleCounter % NTP_SYNC_EVERY_CYCLES == 0);
+
+  const unsigned long networkWindowStart = millis();
+  auto remainingNetworkBudgetMs = [networkWindowStart]() -> unsigned long {
+    const unsigned long elapsed = millis() - networkWindowStart;
+    return (elapsed >= NETWORK_BUDGET_MS) ? 0 : (NETWORK_BUDGET_MS - elapsed);
+  };
+
   conectarWiFi(conectado); // Conecta WiFi
-  btStop();                // Desativa o Bluetooth
-  sincronizarHorarioNTP();
+  if (!conectado)
+  {
+    reconectarWiFi(conectado, remainingNetworkBudgetMs());
+  }
+  btStop(); // Desativa o Bluetooth
 
-  configurarMQTT(mqtt_server, mqtt_port, mqtt_user, mqtt_password);
-  conectarMQTT();
+  if (conectado && shouldSyncNtp)
+  {
+    const unsigned long timeoutNtp = remainingNetworkBudgetMs();
+    if (timeoutNtp > 0)
+    {
+      sincronizarHorarioNTP(timeoutNtp);
+    }
+    else
+    {
+      publicarLogSistema("Orcamento de rede esgotado; NTP sera ignorado neste ciclo", "ERROR");
+    }
+  }
+  else if (!conectado)
+  {
+    publicarLogSistema("WiFi indisponivel; NTP sera ignorado neste ciclo", "ERROR");
+  }
 
-  tentarEnviarLogsPendentes();
+  configurarMQTT(AWS_IOT_ENDPOINT, mqtt_port);
+  bool mqttConectado = false;
+  if (conectado)
+  {
+    const unsigned long timeoutMqtt = remainingNetworkBudgetMs();
+    if (timeoutMqtt > 0)
+    {
+      mqttConectado = conectarMQTT(timeoutMqtt);
+    }
+    else
+    {
+      publicarLogSistema("Orcamento de rede esgotado; MQTT sera ignorado neste ciclo", "ERROR");
+    }
+  }
+
+  if (mqttConectado && remainingNetworkBudgetMs() > 0)
+  {
+    tentarEnviarLogsPendentes();
+  }
   publicarLeituraDistancia(conectado);
   publicarLeituraBateria(conectado);
 
   sleepBaterrySensor();
 
-  // Serial.println("Entrando em modo deep sleep por 10 segundos...");
+  // Serial.println("Entrando em modo deep sleep por 30 minutos...");
   gpio_deep_sleep_hold_en();
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP);
   esp_deep_sleep_start();

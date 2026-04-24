@@ -24,11 +24,10 @@ void setupBatterySensor() {
 
 void sleepBaterrySensor() {
     fuelGauge.sleep();
-    Wire.endTransmission();
     Wire.end();
 }
 
-void lerDadosBateria(volatile float& percentage, volatile float& voltage) {
+void lerDadosBateria(float& percentage, float& voltage) {
     percentage = fuelGauge.getSOC();
     voltage = fuelGauge.getVoltage();
     

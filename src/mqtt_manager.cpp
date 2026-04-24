@@ -9,6 +9,7 @@
 
 #include "../include/mqtt_manager.h"
 #include "../include/publish_manager.h"
+#include "../include/aws_iot_config.h"
 
 // --- Variáveis Estáticas Globais ---
 
@@ -32,30 +33,24 @@ static PubSubClient client(espClient);
  *   - `_server`: Ponteiro que armazenará o endereço da string do servidor.
  *   - `_port`: Variável inteira para a porta do servidor.
  */
-static const char* _user;
-static const char* _password;
 static const char* _server;
 static int _port;
 
 /**
  * @brief Implementação da função de configuração do cliente MQTT.
- * @details Esta função armazena as informações do broker em variáveis estáticas locais e configura
- *          a instância do `PubSubClient`. A chamada `espClient.setInsecure()` é usada para pular a
- *          validação do certificado do servidor, facilitando a configuração em ambientes de teste.
- *          Em um ambiente de produção, seria necessário carregar um certificado CA.
- *          `client.setServer()` informa à biblioteca o endereço e a porta do broker a ser usado.
+ * @details Esta função armazena as informações do broker e configura a instância do `PubSubClient`.
+ *          Para o AWS IoT Core, o ESP32 usa TLS mútuo com certificado raiz da AWS, certificado do dispositivo
+ *          e chave privada do dispositivo.
  * @param server Endereço do broker MQTT.
  * @param port Porta do broker.
- * @param user Nome de usuário para autenticação.
- * @param password Senha para autenticação.
  */
-void configurarMQTT(const char* server, int port, const char* user, const char* password) {
+void configurarMQTT(const char* server, int port) {
   _server = server;
   _port = port;
-  _user = user;
-  _password = password;
 
-  espClient.setInsecure();
+  espClient.setCACert(AWS_IOT_ROOT_CA);
+  espClient.setCertificate(AWS_IOT_DEVICE_CERT);
+  espClient.setPrivateKey(AWS_IOT_PRIVATE_KEY);
   client.setServer(_server, _port);
 }
 
@@ -85,7 +80,7 @@ bool conectarMQTT(unsigned long timeoutMs) { // Timeout padrão 30s
   unsigned long start = millis();
 
   while (!client.connected()) {
-    if (client.connect("ESP32Client", _user, _password)) {
+    if (client.connect(AWS_IOT_CLIENT_ID)) {
       publicarLogSistema("MQTT conectado com sucesso", "SUCCESS");
       return true;
     } else {

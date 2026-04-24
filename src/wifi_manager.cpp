@@ -55,6 +55,46 @@ void conectarWiFi(bool& conectado)
 }
 
 /**
+ * @brief Verifica o estado atual da conexao e tenta reconectar quando necessario.
+ * @param conectado Referencia para a flag de estado da conexao.
+ */
+void reconectarWiFi(bool& conectado, unsigned long timeoutMs)
+{
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    conectado = true;
+    return;
+  }
+
+  if (timeoutMs == 0)
+  {
+    conectado = false;
+    publicarLogSistema("Orcamento de rede esgotado antes da reconexao WiFi", "ERROR");
+    return;
+  }
+
+  conectado = false;
+  WiFi.reconnect();
+
+  const unsigned long start = millis();
+
+  while (WiFi.status() != WL_CONNECTED && (millis() - start) < timeoutMs)
+  {
+    delay(250);
+  }
+
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    conectado = true;
+    publicarLogSistema("WiFi reconectado com sucesso", "SUCCESS");
+  }
+  else
+  {
+    publicarLogSistema("Falha ao reconectar WiFi", "ERROR");
+  }
+}
+
+/**
  * @brief Implementação da função de sincronização de tempo com NTP.
  * @details A função primeiro configura o cliente NTP usando `configTime`, definindo o deslocamento de fuso
  *          horário (UTC-3), o horário de verão (0) e os servidores NTP a serem usados. Em seguida, ela entra
@@ -64,11 +104,19 @@ void conectarWiFi(bool& conectado)
  *          função retorna `false`.
  * @return `true` se a sincronização for bem-sucedida, `false` caso contrário.
  */
-bool sincronizarHorarioNTP()
+bool sincronizarHorarioNTP(unsigned long timeoutMs)
 {
+  if (timeoutMs == 0)
+  {
+    publicarLogSistema("Orcamento de rede esgotado antes da sincronizacao NTP", "ERROR");
+    return false;
+  }
+
   configTime(-3 * 3600, 0, "pool.ntp.org", "time.nist.gov");
   struct tm timeinfo;
-  for (int i = 0; i < 10; i++)
+  const unsigned long start = millis();
+
+  while ((millis() - start) < timeoutMs)
   {
     if (getLocalTime(&timeinfo))
     {

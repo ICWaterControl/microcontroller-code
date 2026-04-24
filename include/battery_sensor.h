@@ -16,6 +16,6 @@ void sleepBaterrySensor();
  * @param percentage Referência para uma variável float onde a porcentagem será armazenada.
  * @param voltage Referência para uma variável float onde a voltagem será armazenada.
  */
-void lerDadosBateria(volatile float& percentage, volatile float& voltage);
+void lerDadosBateria(float& percentage, float& voltage);
 
 #endif
