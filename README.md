@@ -8,16 +8,21 @@ Este repositório contém o firmware de um sistema embarcado para o monitorament
 
 O objetivo principal é desenvolver uma solução IoT de baixo custo para medir o nível da água utilizando um sensor ultrassônico e transmitir esses dados para a nuvem. O sistema se conecta a uma rede Wi-Fi, envia os dados formatados em JSON para o AWS IoT Core e inclui funcionalidades de resiliência, como armazenamento local de dados em caso de falha de conexão.
 
+O firmware é estruturado com **orientação a objetos em C++**, onde cada módulo é encapsulado em uma classe com estado privado e interface pública. As dependências entre os módulos são resolvidas por **injeção de dependência** via referências no construtor, promovendo baixo acoplamento e alta coesão.
+
 ---
 
 ## ✨ Funcionalidades Principais
 
--   **Medição de Nível:** Leitura da distância da lâmina d’água com sensor ultrassônico.
--   **Conectividade:** Conexão a redes Wi-Fi com tratamento de reconexão automática.
--   **Comunicação MQTT:** Envio de dados para o AWS IoT Core usando protocolo seguro (TLS/SSL com certificado de dispositivo).
+-   **Medição de Nível:** Leitura da distância da lâmina d'água com sensor ultrassônico (classe `UltrasonicSensor`).
+-   **Monitoramento de Bateria:** Leitura de voltagem e porcentagem de carga via fuel gauge MAX1704x (classe `BatterySensor`).
+-   **Conectividade:** Conexão a redes Wi-Fi com portal captivo e reconexão automática (classe `WifiManager`).
+-   **Comunicação MQTT:** Envio de dados para o AWS IoT Core usando protocolo seguro TLS/SSL (classe `MqttManager`).
+-   **Publicação com Fallback:** Publicação MQTT com armazenamento local em SPIFFS quando offline (classe `MqttPublisher`).
+-   **Orquestração:** Coordenação de sensores, logging e publicação centralizada (classe `PublishManager`).
 -   **Sincronização de Tempo:** Obtenção de timestamp via NTP para registros precisos.
 -   **Formato de Dados:** Empacotamento das informações em formato JSON para fácil integração.
--   **Resiliência:** Armazenamento temporário de medições no sistema de arquivos SPIFFS em caso de falha de conexão, com envio posterior.
+-   **Deep Sleep:** Modo de economia de energia com ciclos de 30 minutos, preservando contadores entre despertares via memória RTC.
 
 ---
 
@@ -35,6 +40,7 @@ O objetivo principal é desenvolver uma solução IoT de baixo custo para medir 
 
 -   Placa de desenvolvimento baseada no **ESP32**.
 -   **Sensor Ultrassônico HC-SR04** (ou similar).
+-   **Fuel Gauge MAX1704x** para monitoramento de bateria.
 -   Cabos e protoboard para as conexões.
 
 ---
@@ -94,29 +100,132 @@ Siga os passos abaixo para compilar e executar o projeto.
 
 ```
 .
-├── include/                # Arquivos de cabeçalho (.h)
-│   ├── mqtt_manager.h
-│   ├── aws_iot_config.h
-│   ├── battery_sensor.h
-│   ├── mqtt_publisher.h
-│   ├── publish_manager.h
-│   ├── ultrasonic_sensor.h
-│   └── wifi_manager.h
+├── include/                # Cabeçalhos das classes (.h)
+│   ├── aws_iot_config.h    # Certificados e endpoint do AWS IoT Core
+│   ├── battery_sensor.h    # Classe BatterySensor
+│   ├── main.h              # Inclusões agregadas para main.cpp
+│   ├── mqtt_manager.h      # Classe MqttManager
+│   ├── mqtt_publisher.h    # Classe MqttPublisher
+│   ├── publish_manager.h   # Classe PublishManager
+│   ├── ultrasonic_sensor.h # Classe UltrasonicSensor
+│   └── wifi_manager.h      # Classe WifiManager
 ├── lib/                    # Bibliotecas locais (se houver)
-├── src/                    # Código-fonte (.cpp)
-│   ├── main.cpp            # Ponto de entrada e lógica principal
-│   ├── battery_sensor.cpp
-│   ├── mqtt_manager.cpp
-│   ├── mqtt_publisher.cpp
-│   ├── publish_manager.cpp
-│   ├── ultrasonic_sensor.cpp
-│   └── wifi_manager.cpp
+├── src/                    # Implementação das classes (.cpp)
+│   ├── main.cpp            # Ponto de entrada: instanciação e orquestração
+│   ├── battery_sensor.cpp  # Implementação de BatterySensor
+│   ├── mqtt_manager.cpp    # Implementação de MqttManager
+│   ├── mqtt_publisher.cpp  # Implementação de MqttPublisher
+│   ├── publish_manager.cpp # Implementação de PublishManager
+│   ├── ultrasonic_sensor.cpp # Implementação de UltrasonicSensor
+│   └── wifi_manager.cpp    # Implementação de WifiManager
 ├── test/                   # Testes (se houver)
 ├── .gitignore
 ├── diagram.json
 ├── platformio.ini          # Arquivo de configuração do PlatformIO
 ├── README.md
 └── wokwi.toml
+```
+
+---
+
+## 🏗️ Arquitetura OOP
+
+O firmware é organizado em **6 classes** com responsabilidades bem definidas, conectadas por injeção de dependência:
+
+```mermaid
+classDiagram
+    class UltrasonicSensor {
+        -uint8_t _trigPin
+        -uint8_t _echoPin
+        +begin(trig, echo)
+        +lerDistancia() long
+    }
+
+    class BatterySensor {
+        -SFE_MAX1704X _fuelGauge
+        +begin()
+        +sleep()
+        +lerDados(pct, volt)
+    }
+
+    class MqttManager {
+        -WiFiClientSecure _espClient
+        -PubSubClient _client
+        -PublishManager* _publishManager
+        +configurar(server, port)
+        +conectar(timeoutMs) bool
+        +getClient() PubSubClient&
+        +setPublishManager(pm)
+    }
+
+    class MqttPublisher {
+        -MqttManager& _mqtt
+        +publicar(topic, payload)
+        +enviarLogsPendentes()
+    }
+
+    class PublishManager {
+        -MqttPublisher& _publisher
+        -UltrasonicSensor& _ultrasonic
+        -BatterySensor& _battery
+        +iniciarSPIFFS() bool
+        +publicarDistancia()
+        +publicarBateria()
+        +publicarLogSistema(msg, status)
+        -criarJsonLog() String
+    }
+
+    class WifiManager {
+        -bool _conectado
+        -PublishManager* _publishManager
+        +begin()
+        +reconectar(timeoutMs)
+        +sincronizarNTP(timeoutMs) bool
+        +isConectado() bool
+        +setPublishManager(pm)
+    }
+
+    MqttPublisher --> MqttManager : referência
+    PublishManager --> MqttPublisher : referência
+    PublishManager --> UltrasonicSensor : referência
+    PublishManager --> BatterySensor : referência
+    WifiManager ..> PublishManager : ponteiro (injetado)
+    MqttManager ..> PublishManager : ponteiro (injetado)
+```
+
+### Descrição dos Módulos
+
+| Classe | Responsabilidade |
+| :--- | :--- |
+| **`UltrasonicSensor`** | Driver do sensor HC-SR04. Encapsula pinos e constantes de temporização. Realiza 5 leituras com média. |
+| **`BatterySensor`** | Driver do fuel gauge MAX1704x. Gerencia I2C, leitura de SOC/voltagem e modo sleep. |
+| **`MqttManager`** | Gerencia a conexão TLS com o AWS IoT Core. Encapsula `WiFiClientSecure` e `PubSubClient`. |
+| **`MqttPublisher`** | Publica mensagens MQTT com fallback automático para SPIFFS. Gerencia reenvio de logs pendentes. |
+| **`PublishManager`** | Orquestra sensores e publicação. Cria payloads JSON com timestamp e coordena todas as publicações. |
+| **`WifiManager`** | Gerencia conexão Wi-Fi via portal captivo, reconexão automática e sincronização NTP. |
+
+### Dependência Circular
+
+`WifiManager` e `MqttManager` precisam do `PublishManager` para registrar logs, mas `PublishManager` depende de `MqttPublisher` → `MqttManager`. A solução é **injeção tardia via ponteiro**: ambos recebem `PublishManager*` através de `setPublishManager()`, chamado no início do `setup()` após a construção de todos os objetos.
+
+### Fluxo de Inicialização (Deep Sleep)
+
+O ESP32 opera em ciclos de **deep sleep de 30 minutos**. A cada despertar, o `setup()` executa a sequência completa:
+
+```
+1. setCpuFrequencyMhz(80)          → Reduz consumo
+2. publishManager.iniciarSPIFFS()  → Monta sistema de arquivos
+3. wifiManager.begin()             → Conecta via portal captivo
+4. wifiManager.reconectar()        → Tenta reconexão se necessário
+5. btStop()                        → Desativa Bluetooth
+6. wifiManager.sincronizarNTP()    → Sincroniza relógio (a cada 12 ciclos)
+7. mqttManager.configurar()        → Configura TLS + broker
+8. mqttManager.conectar()          → Conecta ao AWS IoT Core
+9. mqttPublisher.enviarLogsPendentes() → Reenvia logs offline
+10. publishManager.publicarDistancia() → Lê e publica distância
+11. publishManager.publicarBateria()   → Lê e publica bateria
+12. batterySensor.sleep()          → Desliga fuel gauge
+13. esp_deep_sleep_start()         → Entra em deep sleep (30 min)
 ```
 
 ---

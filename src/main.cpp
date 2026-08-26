@@ -5,17 +5,17 @@
  *          baseado em Arduino/ESP-IDF. A função `setup` é responsável por inicializar todos os módulos
  *          e hardware, enquanto a `loop` executa a lógica principal do sistema de forma contínua, garantindo
  *          a leitura dos sensores, a manutenção da conectividade e a publicação dos dados.
+ *
+ *          Na versão orientada a objetos, cada módulo é encapsulado em uma classe com estado privado
+ *          e interface pública. Os objetos são instanciados globalmente e conectados via referências
+ *          e injeção de dependência. O fluxo de inicialização e deep sleep permanece idêntico
+ *          à versão procedural.
  */
 
 #include "../include/main.h"
-#include "../include/battery_sensor.h"
-#include "../include/publish_manager.h"
-#include "../include/mqtt_publisher.h"
 #include "../include/aws_iot_config.h"
 
 // --- Configurações da Rede e Servidores ---
-
-// Credenciais da Rede Wi-Fi
 
 // Configurações do Broker MQTT (AWS IoT Core)
 const int mqtt_port = 8883;
@@ -26,9 +26,6 @@ const int mqtt_port = 8883;
 const uint8_t trigPin = 5;  // Pino de disparo (trigger)
 const uint8_t echoPin = 18; // Pino de eco (echo)
 
-// Variável global para monitorar o estado da conexão Wi-Fi
-static bool conectado;
-
 // Intervalo entre as leituras e publicações dos dados do sensor (em segundos)
 #define uS_TO_S_FACTOR 1000000ULL
 constexpr int SLEEP_TIME_IN_SECONDS = 1800; // 30 minutos
@@ -38,6 +35,15 @@ constexpr uint32_t NTP_SYNC_EVERY_CYCLES = 12;
 
 // Mantem o contador entre despertares de deep sleep.
 RTC_DATA_ATTR uint32_t wakeCycleCounter = 0;
+
+// --- Instâncias dos Objetos (Composição) ---
+
+UltrasonicSensor ultrasonicSensor;
+BatterySensor    batterySensor;
+MqttManager      mqttManager;
+MqttPublisher    mqttPublisher(mqttManager);
+PublishManager   publishManager(mqttPublisher, ultrasonicSensor, batterySensor);
+WifiManager      wifiManager;
 
 /**
  * @brief Função de inicialização do sistema.
@@ -59,9 +65,13 @@ void setup()
 
   // Serial.println("ESP32 is running");
 
-  setupBatterySensor();
-  iniciarSPIFFS();
-  configurarSensor(trigPin, echoPin);
+  // Injeta dependências circulares após a construção de todos os objetos
+  mqttManager.setPublishManager(&publishManager);
+  wifiManager.setPublishManager(&publishManager);
+
+  // batterySensor.begin();
+  publishManager.iniciarSPIFFS();
+  // ultrasonicSensor.begin(trigPin, echoPin);
 
   wakeCycleCounter++;
   const bool shouldSyncNtp =
@@ -73,53 +83,53 @@ void setup()
     return (elapsed >= NETWORK_BUDGET_MS) ? 0 : (NETWORK_BUDGET_MS - elapsed);
   };
 
-  conectarWiFi(conectado); // Conecta WiFi
-  if (!conectado)
+  wifiManager.begin(); // Conecta WiFi
+  if (!wifiManager.isConectado())
   {
-    reconectarWiFi(conectado, remainingNetworkBudgetMs());
+    wifiManager.reconectar(remainingNetworkBudgetMs());
   }
   btStop(); // Desativa o Bluetooth
 
-  if (conectado && shouldSyncNtp)
+  if (wifiManager.isConectado() && shouldSyncNtp)
   {
     const unsigned long timeoutNtp = remainingNetworkBudgetMs();
     if (timeoutNtp > 0)
     {
-      sincronizarHorarioNTP(timeoutNtp);
+      wifiManager.sincronizarNTP(timeoutNtp);
     }
     else
     {
-      publicarLogSistema("Orcamento de rede esgotado; NTP sera ignorado neste ciclo", "ERROR");
+      publishManager.publicarLogSistema("Orcamento de rede esgotado; NTP sera ignorado neste ciclo", "ERROR");
     }
   }
-  else if (!conectado)
+  else if (!wifiManager.isConectado())
   {
-    publicarLogSistema("WiFi indisponivel; NTP sera ignorado neste ciclo", "ERROR");
+    publishManager.publicarLogSistema("WiFi indisponivel; NTP sera ignorado neste ciclo", "ERROR");
   }
 
-  configurarMQTT(AWS_IOT_ENDPOINT, mqtt_port);
+  mqttManager.configurar(AWS_IOT_ENDPOINT, mqtt_port);
   bool mqttConectado = false;
-  if (conectado)
+  if (wifiManager.isConectado())
   {
     const unsigned long timeoutMqtt = remainingNetworkBudgetMs();
     if (timeoutMqtt > 0)
     {
-      mqttConectado = conectarMQTT(timeoutMqtt);
+      mqttConectado = mqttManager.conectar(timeoutMqtt);
     }
     else
     {
-      publicarLogSistema("Orcamento de rede esgotado; MQTT sera ignorado neste ciclo", "ERROR");
+      publishManager.publicarLogSistema("Orcamento de rede esgotado; MQTT sera ignorado neste ciclo", "ERROR");
     }
   }
 
   if (mqttConectado && remainingNetworkBudgetMs() > 0)
   {
-    tentarEnviarLogsPendentes();
+    mqttPublisher.enviarLogsPendentes();
   }
-  publicarLeituraDistancia(conectado);
-  publicarLeituraBateria(conectado);
+  publishManager.publicarDistancia();
+  publishManager.publicarBateria();
 
-  sleepBaterrySensor();
+  batterySensor.sleep();
 
   // Serial.println("Entrando em modo deep sleep por 30 minutos...");
   gpio_deep_sleep_hold_en();

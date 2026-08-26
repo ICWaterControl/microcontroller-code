@@ -1,10 +1,9 @@
 /**
  * @file wifi_manager.cpp
- * @brief Implementação do gerenciador de conexão Wi-Fi e sincronização de tempo.
- * @details Este arquivo contém a lógica de implementação para as funções de gerenciamento da rede Wi-Fi.
- *          Ele lida com a conexão inicial, a lógica de reconexão e a sincronização do relógio do sistema
- *          com um servidor NTP. Todos os eventos importantes, como sucesso ou falha na conexão e sincronização,
- *          são registrados usando o `publish_manager`.
+ * @brief Implementação da classe WifiManager.
+ * @details Contém a lógica de conexão inicial via portal captivo (WiFiManager library),
+ *          reconexão automática e sincronização do relógio com NTP. Todos os eventos
+ *          são registrados usando o PublishManager quando disponível.
  */
 
 #include <WiFiManager.h>
@@ -12,119 +11,102 @@
 #include "../include/wifi_manager.h"
 #include "../include/publish_manager.h"
 
+void WifiManager::setPublishManager(PublishManager* pm) {
+    _publishManager = pm;
+}
+
 /**
- * @brief Implementação da função de conexão inicial com a rede Wi-Fi.
- * @details A função chama `WiFi.begin()` para iniciar o processo de conexão. Em seguida, entra em um
- *          loop `while` que bloqueia a execução até que o status da conexão seja `WL_CONNECTED`.
- *          Durante a espera, pontos são impressos no monitor serial para fornecer feedback visual.
- *          Após a conexão bem-sucedida, uma mensagem de sucesso é publicada e a flag de estado
- *          `conectado` é atualizada para `true`.
- * @param conectado Ponteiro para a flag de estado da conexão.
+ * @brief Implementação da conexão inicial com a rede Wi-Fi.
+ * @details Usa o WiFiManager (portal captivo) para autoconnect. Se a conexão falhar,
+ *          registra um log de erro. Se bem-sucedida, registra o SSID e ativa o modo
+ *          de economia de energia mínimo do modem WiFi.
  */
-void conectarWiFi(bool& conectado)
-{
-  WiFiManager wm;
-  //wm.resetSettings(); // Descomente para limpar as configurações salvas
+void WifiManager::begin() {
+    ::WiFiManager wm;
+    wm.resetSettings(); // Descomente para limpar as configurações salvas
 
-  // Configura o IP estático no WiFiManager
-  /*IPAddress _ip      = IPAddress(192, 168, 1, 184);
-  IPAddress _gw      = IPAddress(192, 168, 1, 1);
-  IPAddress _sn      = IPAddress(255, 255, 255, 0);
-  wm.setSTAStaticIPConfig(_ip, _gw, _sn);*/
+    // Configura o IP estático no WiFiManager
+    /*IPAddress _ip      = IPAddress(192, 168, 1, 184);
+    IPAddress _gw      = IPAddress(192, 168, 1, 1);
+    IPAddress _sn      = IPAddress(255, 255, 255, 0);
+    wm.setSTAStaticIPConfig(_ip, _gw, _sn);*/
 
-  bool res = wm.autoConnect("CaixaDagua_AP");
-  if (!res)
-  {
-    publicarLogSistema("Falha ao conectar ou tempo de configuração esgotado", "ERROR");
-    conectado = false;
-  }
-  else
-  {
-    char message[128];
-    const char *ssid = WiFi.SSID().c_str();
-    if (strlen(ssid) > 108)
-    {
-      ssid = "SSID muito longo";
+    bool res = wm.autoConnect("CaixaDagua_AP");
+    if (!res) {
+        if (_publishManager) _publishManager->publicarLogSistema("Falha ao conectar ou tempo de configuração esgotado", "ERROR");
+        _conectado = false;
+    } else {
+        char message[128];
+        const char* ssid = WiFi.SSID().c_str();
+        if (strlen(ssid) > 108) {
+            ssid = "SSID muito longo";
+        }
+        snprintf(message, sizeof(message), "Conectado na rede: %s", ssid);
+        if (_publishManager) _publishManager->publicarLogSistema(String(message), "SUCCESS");
+        _conectado = true;
+
+        esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
     }
-    snprintf(message, sizeof(message), "Conectado na rede: %s", ssid);
-    publicarLogSistema(String(message), "SUCCESS");
-    conectado = true;
-
-    esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
-  }
 }
 
 /**
- * @brief Verifica o estado atual da conexao e tenta reconectar quando necessario.
- * @param conectado Referencia para a flag de estado da conexao.
+ * @brief Verifica o estado atual da conexão e tenta reconectar quando necessário.
  */
-void reconectarWiFi(bool& conectado, unsigned long timeoutMs)
-{
-  if (WiFi.status() == WL_CONNECTED)
-  {
-    conectado = true;
-    return;
-  }
+void WifiManager::reconectar(unsigned long timeoutMs) {
+    if (WiFi.status() == WL_CONNECTED) {
+        _conectado = true;
+        return;
+    }
 
-  if (timeoutMs == 0)
-  {
-    conectado = false;
-    publicarLogSistema("Orcamento de rede esgotado antes da reconexao WiFi", "ERROR");
-    return;
-  }
+    if (timeoutMs == 0) {
+        _conectado = false;
+        if (_publishManager) _publishManager->publicarLogSistema("Orcamento de rede esgotado antes da reconexao WiFi", "ERROR");
+        return;
+    }
 
-  conectado = false;
-  WiFi.reconnect();
+    _conectado = false;
+    WiFi.reconnect();
 
-  const unsigned long start = millis();
+    const unsigned long start = millis();
 
-  while (WiFi.status() != WL_CONNECTED && (millis() - start) < timeoutMs)
-  {
-    delay(250);
-  }
+    while (WiFi.status() != WL_CONNECTED && (millis() - start) < timeoutMs) {
+        delay(250);
+    }
 
-  if (WiFi.status() == WL_CONNECTED)
-  {
-    conectado = true;
-    publicarLogSistema("WiFi reconectado com sucesso", "SUCCESS");
-  }
-  else
-  {
-    publicarLogSistema("Falha ao reconectar WiFi", "ERROR");
-  }
+    if (WiFi.status() == WL_CONNECTED) {
+        _conectado = true;
+        if (_publishManager) _publishManager->publicarLogSistema("WiFi reconectado com sucesso", "SUCCESS");
+    } else {
+        if (_publishManager) _publishManager->publicarLogSistema("Falha ao reconectar WiFi", "ERROR");
+    }
 }
 
 /**
- * @brief Implementação da função de sincronização de tempo com NTP.
- * @details A função primeiro configura o cliente NTP usando `configTime`, definindo o deslocamento de fuso
- *          horário (UTC-3), o horário de verão (0) e os servidores NTP a serem usados. Em seguida, ela entra
- *          em um loop que tenta obter a hora local por até 10 vezes, com um intervalo de 1 segundo entre
- *          as tentativas. Se `getLocalTime()` for bem-sucedida, uma mensagem de sucesso é publicada e a
- *          função retorna `true`. Se todas as tentativas falharem, uma mensagem de erro é publicada e a
- *          função retorna `false`.
- * @return `true` se a sincronização for bem-sucedida, `false` caso contrário.
+ * @brief Implementação da sincronização de tempo com NTP.
+ * @details Configura o cliente NTP com fuso horário UTC-3 e tenta obter a hora
+ *          dentro do timeout especificado.
  */
-bool sincronizarHorarioNTP(unsigned long timeoutMs)
-{
-  if (timeoutMs == 0)
-  {
-    publicarLogSistema("Orcamento de rede esgotado antes da sincronizacao NTP", "ERROR");
+bool WifiManager::sincronizarNTP(unsigned long timeoutMs) {
+    if (timeoutMs == 0) {
+        if (_publishManager) _publishManager->publicarLogSistema("Orcamento de rede esgotado antes da sincronizacao NTP", "ERROR");
+        return false;
+    }
+
+    configTime(-3 * 3600, 0, "pool.ntp.org", "time.nist.gov");
+    struct tm timeinfo;
+    const unsigned long start = millis();
+
+    while ((millis() - start) < timeoutMs) {
+        if (getLocalTime(&timeinfo)) {
+            if (_publishManager) _publishManager->publicarLogSistema("Tempo NTP sincronizado com sucesso", "SUCCESS");
+            return true;
+        }
+        delay(1000);
+    }
+    if (_publishManager) _publishManager->publicarLogSistema("Falha ao obter tempo via NTP", "ERROR");
     return false;
-  }
+}
 
-  configTime(-3 * 3600, 0, "pool.ntp.org", "time.nist.gov");
-  struct tm timeinfo;
-  const unsigned long start = millis();
-
-  while ((millis() - start) < timeoutMs)
-  {
-    if (getLocalTime(&timeinfo))
-    {
-      publicarLogSistema("Tempo NTP sincronizado com sucesso", "SUCCESS");
-      return true;
-    }
-    delay(1000);
-  }
-  publicarLogSistema("Falha ao obter tempo via NTP", "ERROR");
-  return false;
+bool WifiManager::isConectado() const {
+    return _conectado;
 }

@@ -1,21 +1,27 @@
 #ifndef BATTERY_SENSOR_H
 #define BATTERY_SENSOR_H
 
-/**
- * @brief Configura o sensor de bateria (fuel gauge).
- * @details Inicializa a comunicação I2C com o sensor MAX1704x nos pinos corretos.
- *          Deve ser chamada uma vez durante a fase de setup.
- */
-void setupBatterySensor();
+#include <Wire.h>
+#include <SparkFun_MAX1704x_Fuel_Gauge_Arduino_Library.h>
 
-void sleepBaterrySensor();
+// Driver para o fuel gauge MAX1704x
+class BatterySensor {
+public:
+    BatterySensor() = default;
 
-/**
- * @brief Lê os dados do sensor de bateria.
- * @details Obtém a porcentagem do estado de carga (SOC) e a voltagem da bateria.
- * @param percentage Referência para uma variável float onde a porcentagem será armazenada.
- * @param voltage Referência para uma variável float onde a voltagem será armazenada.
- */
-void lerDadosBateria(float& percentage, float& voltage);
+    // Inicializa I2C e o sensor de bateria
+    void begin();
+
+    // Coloca o sensor em sleep e encerra I2C
+    void sleep();
+
+    // Lê porcentagem e voltagem da bateria
+    void lerDados(float& percentage, float& voltage);
+
+private:
+    SFE_MAX1704X _fuelGauge;
+    static constexpr int SDA_PIN = 21;
+    static constexpr int SCL_PIN = 22;
+};
 
 #endif
