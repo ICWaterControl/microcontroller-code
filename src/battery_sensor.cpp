@@ -11,19 +11,19 @@
 void BatterySensor::begin() {
     Wire.begin(SDA_PIN, SCL_PIN);
 
-    if (_fuelGauge.begin() == false) {
+    if (m_fuelGauge.begin() == false) {
         return;
     }
 }
 
 void BatterySensor::sleep() {
-    _fuelGauge.sleep();
+    m_fuelGauge.sleep();
     Wire.end();
 }
 
 void BatterySensor::lerDados(float& percentage, float& voltage) {
-    percentage = _fuelGauge.getSOC();
-    voltage = _fuelGauge.getVoltage();
+    percentage = m_fuelGauge.getSOC();
+    voltage = m_fuelGauge.getVoltage();
 
     Serial.printf("[BATTERY] Percentage: %.2f | Voltage: %.2f\n", percentage, voltage);
 }

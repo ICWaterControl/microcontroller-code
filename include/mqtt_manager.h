@@ -24,11 +24,11 @@ public:
     PubSubClient& getClient();
 
 private:
-    WiFiClientSecure _espClient;
-    PubSubClient _client;
-    const char* _server = nullptr;
-    int _port = 0;
-    PublishManager* _publishManager = nullptr;
+    WiFiClientSecure m_espClient;
+    PubSubClient m_client;
+    const char* m_server = nullptr;
+    int m_port = 0;
+    PublishManager* m_publishManager = nullptr;
 };
 
 #endif

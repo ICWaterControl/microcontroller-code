@@ -8,10 +8,10 @@
 #include "../include/ultrasonic_sensor.h"
 
 void UltrasonicSensor::begin(uint8_t trig, uint8_t echo) {
-    _trigPin = trig;
-    _echoPin = echo;
-    pinMode(_trigPin, OUTPUT);
-    pinMode(_echoPin, INPUT_PULLUP);
+    m_trigPin = trig;
+    m_echoPin = echo;
+    pinMode(m_trigPin, OUTPUT);
+    pinMode(m_echoPin, INPUT_PULLUP);
 }
 
 /**
@@ -29,13 +29,13 @@ long UltrasonicSensor::lerDistancia() {
     int valid_readings = 0;
 
     for (int i = 0; i < 5; i++) {
-        digitalWrite(_trigPin, LOW);
+        digitalWrite(m_trigPin, LOW);
         delayMicroseconds(2);
-        digitalWrite(_trigPin, HIGH);
+        digitalWrite(m_trigPin, HIGH);
         delayMicroseconds(TRIGGER_PULSE_DURATION_US);
-        digitalWrite(_trigPin, LOW);
+        digitalWrite(m_trigPin, LOW);
 
-        long duration = pulseIn(_echoPin, HIGH, PULSEIN_TIMEOUT_US);
+        long duration = pulseIn(m_echoPin, HIGH, PULSEIN_TIMEOUT_US);
         long distance = (duration == 0) ? -1 : duration / SOUND_SPEED_DIVISOR;
 
         if (distance != -1) {
@@ -46,6 +46,7 @@ long UltrasonicSensor::lerDistancia() {
     }
 
     if (valid_readings > 0) {
+        Serial.println("Distancia media: " + String(total_distance / valid_readings) + " cm");
         return total_distance / valid_readings;
     } else {
         return -1; // Retorna -1 se todas as leituras falharem

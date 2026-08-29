@@ -15,8 +15,8 @@ public:
     long lerDistancia();
 
 private:
-    uint8_t _trigPin = 0;
-    uint8_t _echoPin = 0;
+    uint8_t m_trigPin = 0;
+    uint8_t m_echoPin = 0;
 
     static constexpr int TRIGGER_PULSE_DURATION_US = 15;
     static constexpr int PULSEIN_TIMEOUT_US = 26000;

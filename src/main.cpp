@@ -14,6 +14,7 @@
 
 #include "../include/main.h"
 #include "../include/aws_iot_config.h"
+#include "../include/device_id_config.hpp"
 
 // --- Configurações da Rede e Servidores ---
 
@@ -28,7 +29,7 @@ const uint8_t echoPin = 18; // Pino de eco (echo)
 
 // Intervalo entre as leituras e publicações dos dados do sensor (em segundos)
 #define uS_TO_S_FACTOR 1000000ULL
-constexpr int SLEEP_TIME_IN_SECONDS = 1800; // 30 minutos
+constexpr int SLEEP_TIME_IN_SECONDS = 5; // 5 segundos
 constexpr int TIME_TO_SLEEP = SLEEP_TIME_IN_SECONDS * uS_TO_S_FACTOR;
 constexpr unsigned long NETWORK_BUDGET_MS = 12000;
 constexpr uint32_t NTP_SYNC_EVERY_CYCLES = 12;
@@ -39,11 +40,11 @@ RTC_DATA_ATTR uint32_t wakeCycleCounter = 0;
 // --- Instâncias dos Objetos (Composição) ---
 
 UltrasonicSensor ultrasonicSensor;
-BatterySensor    batterySensor;
-MqttManager      mqttManager;
-MqttPublisher    mqttPublisher(mqttManager);
-PublishManager   publishManager(mqttPublisher, ultrasonicSensor, batterySensor);
-WifiManager      wifiManager;
+BatterySensor batterySensor;
+MqttManager mqttManager;
+MqttPublisher mqttPublisher(mqttManager);
+PublishManager publishManager(mqttPublisher, ultrasonicSensor, batterySensor);
+WifiManager wifiManager;
 
 /**
  * @brief Função de inicialização do sistema.
@@ -58,83 +59,92 @@ WifiManager      wifiManager;
  */
 void setup()
 {
-  setCpuFrequencyMhz(80);
+    setCpuFrequencyMhz(80);
 
-  // Serial.begin(115200);
-  delay(10);
+    Serial.begin(115200);
+    delay(10);
 
-  // Serial.println("ESP32 is running");
+    Serial.print(device_name);
+    Serial.println(" is running");
 
-  // Injeta dependências circulares após a construção de todos os objetos
-  mqttManager.setPublishManager(&publishManager);
-  wifiManager.setPublishManager(&publishManager);
+    // Injeta dependências circulares após a construção de todos os objetos
+    mqttManager.setPublishManager(&publishManager);
+    wifiManager.setPublishManager(&publishManager);
 
-  // batterySensor.begin();
-  publishManager.iniciarSPIFFS();
-  // ultrasonicSensor.begin(trigPin, echoPin);
+    // batterySensor.begin();
+    publishManager.iniciarSPIFFS();
+    ultrasonicSensor.begin(trigPin, echoPin);
 
-  wakeCycleCounter++;
-  const bool shouldSyncNtp =
-      (wakeCycleCounter == 1) || (wakeCycleCounter % NTP_SYNC_EVERY_CYCLES == 0);
+    wakeCycleCounter++;
+    const bool shouldSyncNtp =
+        (wakeCycleCounter == 1) || (wakeCycleCounter % NTP_SYNC_EVERY_CYCLES == 0);
 
-  const unsigned long networkWindowStart = millis();
-  auto remainingNetworkBudgetMs = [networkWindowStart]() -> unsigned long {
-    const unsigned long elapsed = millis() - networkWindowStart;
-    return (elapsed >= NETWORK_BUDGET_MS) ? 0 : (NETWORK_BUDGET_MS - elapsed);
-  };
-
-  wifiManager.begin(); // Conecta WiFi
-  if (!wifiManager.isConectado())
-  {
-    wifiManager.reconectar(remainingNetworkBudgetMs());
-  }
-  btStop(); // Desativa o Bluetooth
-
-  if (wifiManager.isConectado() && shouldSyncNtp)
-  {
-    const unsigned long timeoutNtp = remainingNetworkBudgetMs();
-    if (timeoutNtp > 0)
+    const unsigned long networkWindowStart = millis();
+    auto remainingNetworkBudgetMs = [networkWindowStart]() -> unsigned long
     {
-      wifiManager.sincronizarNTP(timeoutNtp);
-    }
-    else
+        const unsigned long elapsed = millis() - networkWindowStart;
+        return (elapsed >= NETWORK_BUDGET_MS) ? 0 : (NETWORK_BUDGET_MS - elapsed);
+    };
+
+    wifiManager.begin(); // Conecta WiFi
+    if (!wifiManager.isConectado())
     {
-      publishManager.publicarLogSistema("Orcamento de rede esgotado; NTP sera ignorado neste ciclo", "ERROR");
+        wifiManager.reconectar(remainingNetworkBudgetMs());
     }
-  }
-  else if (!wifiManager.isConectado())
-  {
-    publishManager.publicarLogSistema("WiFi indisponivel; NTP sera ignorado neste ciclo", "ERROR");
-  }
+    btStop(); // Desativa o Bluetooth
 
-  mqttManager.configurar(AWS_IOT_ENDPOINT, mqtt_port);
-  bool mqttConectado = false;
-  if (wifiManager.isConectado())
-  {
-    const unsigned long timeoutMqtt = remainingNetworkBudgetMs();
-    if (timeoutMqtt > 0)
+    if (wifiManager.isConectado() && shouldSyncNtp)
     {
-      mqttConectado = mqttManager.conectar(timeoutMqtt);
+        const unsigned long timeoutNtp = remainingNetworkBudgetMs();
+        if (timeoutNtp > 0)
+        {
+            wifiManager.sincronizarNTP(timeoutNtp);
+        }
+        else
+        {
+            publishManager.publicarLogSistema("Orcamento de rede esgotado; NTP sera ignorado neste ciclo", "ERROR");
+        }
     }
-    else
+    else if (!wifiManager.isConectado())
     {
-      publishManager.publicarLogSistema("Orcamento de rede esgotado; MQTT sera ignorado neste ciclo", "ERROR");
+        publishManager.publicarLogSistema("WiFi indisponivel; NTP sera ignorado neste ciclo", "ERROR");
     }
-  }
 
-  if (mqttConectado && remainingNetworkBudgetMs() > 0)
-  {
-    mqttPublisher.enviarLogsPendentes();
-  }
-  publishManager.publicarDistancia();
-  publishManager.publicarBateria();
+    bool pingou = wifiManager.ping(AWS_IOT_ENDPOINT);
 
-  batterySensor.sleep();
+    if (pingou)
+    {
+        Serial.println("Conexão com AWS IOT confirmada.");
+    }
 
-  // Serial.println("Entrando em modo deep sleep por 30 minutos...");
-  gpio_deep_sleep_hold_en();
-  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP);
-  esp_deep_sleep_start();
+    mqttManager.configurar(AWS_IOT_ENDPOINT, mqtt_port);
+    bool mqttConectado = false;
+    if (wifiManager.isConectado())
+    {
+        const unsigned long timeoutMqtt = remainingNetworkBudgetMs();
+        if (timeoutMqtt > 0)
+        {
+            mqttConectado = mqttManager.conectar(timeoutMqtt);
+        }
+        else
+        {
+            publishManager.publicarLogSistema("Orcamento de rede esgotado; MQTT sera ignorado neste ciclo", "ERROR");
+        }
+    }
+
+    publishManager.publicarDistancia();
+
+    /* if (mqttConectado && remainingNetworkBudgetMs() > 0)
+    {
+        mqttPublisher.enviarLogsPendentes();
+    }
+    publishManager.publicarBateria();
+    batterySensor.sleep();*/
+
+    // Serial.println("Entrando em modo deep sleep por 30 minutos...");
+    gpio_deep_sleep_hold_en();
+    esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP);
+    esp_deep_sleep_start();
 }
 
 /**

@@ -19,7 +19,7 @@ public:
     void lerDados(float& percentage, float& voltage);
 
 private:
-    SFE_MAX1704X _fuelGauge;
+    SFE_MAX1704X m_fuelGauge;
     static constexpr int SDA_PIN = 21;
     static constexpr int SCL_PIN = 22;
 };

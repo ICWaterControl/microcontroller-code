@@ -18,7 +18,7 @@ public:
     void enviarLogsPendentes();
 
 private:
-    MqttManager& _mqtt;
+    MqttManager& m_mqtt;
 };
 
 #endif

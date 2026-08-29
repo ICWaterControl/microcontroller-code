@@ -15,10 +15,11 @@
  * @brief Construtor: inicializa o PubSubClient com o WiFiClientSecure interno.
  */
 MqttManager::MqttManager()
-    : _client(_espClient) {}
+    : m_client(m_espClient) {}
 
-void MqttManager::setPublishManager(PublishManager* pm) {
-    _publishManager = pm;
+void MqttManager::setPublishManager(PublishManager *pm)
+{
+    m_publishManager = pm;
 }
 
 /**
@@ -26,18 +27,20 @@ void MqttManager::setPublishManager(PublishManager* pm) {
  * @details Armazena as informações do broker e configura o TLS mútuo com certificado raiz
  *          da AWS, certificado do dispositivo e chave privada do dispositivo.
  */
-void MqttManager::configurar(const char* server, int port) {
-    _server = server;
-    _port = port;
+void MqttManager::configurar(const char *server, int port)
+{
+    m_server = server;
+    m_port = port;
 
-    _espClient.setCACert(AWS_IOT_ROOT_CA);
-    _espClient.setCertificate(AWS_IOT_DEVICE_CERT);
-    _espClient.setPrivateKey(AWS_IOT_PRIVATE_KEY);
-    _client.setServer(_server, _port);
+    m_espClient.setCACert(AWS_IOT_ROOT_CA);
+    m_espClient.setCertificate(AWS_IOT_DEVICE_CERT);
+    m_espClient.setPrivateKey(AWS_IOT_PRIVATE_KEY);
+    m_client.setServer(m_server, m_port);
 }
 
-PubSubClient& MqttManager::getClient() {
-    return _client;
+PubSubClient &MqttManager::getClient()
+{
+    return m_client;
 }
 
 /**
@@ -45,19 +48,29 @@ PubSubClient& MqttManager::getClient() {
  * @details Entra em um loop que persiste até que a conexão seja estabelecida ou o timeout
  *          seja atingido. Usa o PublishManager (se disponível) para registrar logs.
  */
-bool MqttManager::conectar(unsigned long timeoutMs) {
+bool MqttManager::conectar(unsigned long timeoutMs)
+{
     unsigned long start = millis();
 
-    while (!_client.connected()) {
-        if (_client.connect(AWS_IOT_CLIENT_ID)) {
-            if (_publishManager) _publishManager->publicarLogSistema("MQTT conectado com sucesso", "SUCCESS");
+    while (!m_client.connected())
+    {
+        if (m_client.connect(AWS_IOT_CLIENT_ID))
+        {
+            Serial.println("[MQTT] MQTT Conectado");
+            if (m_publishManager)
+                m_publishManager->publicarLogSistema("MQTT conectado com sucesso", "SUCCESS");
             return true;
-        } else {
-            if (_publishManager) _publishManager->publicarLogSistema("Falha ao conectar no MQTT. Código: " + String(_client.state()), "ERROR");
+        }
+        else
+        {
+            if (m_publishManager)
+                m_publishManager->publicarLogSistema("Falha ao conectar no MQTT. Código: " + String(m_client.state()), "ERROR");
             delay(5000);
         }
-        if (millis() - start > timeoutMs) {
-            if (_publishManager) _publishManager->publicarLogSistema("Timeout ao tentar conectar MQTT", "ERROR");
+        if (millis() - start > timeoutMs)
+        {
+            if (m_publishManager)
+                m_publishManager->publicarLogSistema("Timeout ao tentar conectar MQTT", "ERROR");
             return false;
         }
     }
