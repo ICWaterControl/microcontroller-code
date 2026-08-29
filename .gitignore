@@ -3,3 +3,6 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+
+include/aws_iot_config.h
+include/device_id_config.hpp

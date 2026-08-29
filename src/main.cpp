@@ -1,48 +1,160 @@
-#include "wifi_manager.h"
-#include "mqtt_manager.h"
-#include "log_manager.h"
-#include "ultrasonic_sensor.h"
+/**
+ * @file main.cpp
+ * @brief Ponto de entrada principal e orquestrador do sistema embarcado.
+ * @details Este arquivo contém as funções `setup()` e `loop()`, que são o coração de qualquer programa
+ *          baseado em Arduino/ESP-IDF. A função `setup` é responsável por inicializar todos os módulos
+ *          e hardware, enquanto a `loop` executa a lógica principal do sistema de forma contínua, garantindo
+ *          a leitura dos sensores, a manutenção da conectividade e a publicação dos dados.
+ *
+ *          Na versão orientada a objetos, cada módulo é encapsulado em uma classe com estado privado
+ *          e interface pública. Os objetos são instanciados globalmente e conectados via referências
+ *          e injeção de dependência. O fluxo de inicialização e deep sleep permanece idêntico
+ *          à versão procedural.
+ */
 
-//const char* ssid = "CLARO_2G6FEFEE";
-//const char* password = "386FEFEE";
-const char* ssid = "Mandrade";
-const char* password = "33534170";
+#include "../include/main.h"
+#include "../include/aws_iot_config.h"
+#include "../include/device_id_config.hpp"
 
+// --- Configurações da Rede e Servidores ---
 
-const char* mqtt_server    = "0bbdda7fb11e4c4795c3e07e3ac1ff60.s1.eu.hivemq.cloud";
-const int   mqtt_port      = 8883;
-const char* mqtt_user      = "Pedro";
-const char* mqtt_password  = "Luciene.456";
+// Configurações do Broker MQTT (AWS IoT Core)
+const int mqtt_port = 8883;
 
-const int trigPin = 5;
-const int echoPin = 18;
+// --- Pinos e Constantes Globais ---
 
-void setup() {
-  Serial.begin(115200);
-  delay(100);
+// Pinos do Sensor Ultrassônico
+const uint8_t trigPin = 5;  // Pino de disparo (trigger)
+const uint8_t echoPin = 18; // Pino de eco (echo)
 
-  configurarSensor(trigPin, echoPin);
-  iniciarSPIFFS();
+// Intervalo entre as leituras e publicações dos dados do sensor (em segundos)
+#define uS_TO_S_FACTOR 1000000ULL
+constexpr int SLEEP_TIME_IN_SECONDS = 5; // 5 segundos
+constexpr int TIME_TO_SLEEP = SLEEP_TIME_IN_SECONDS * uS_TO_S_FACTOR;
+constexpr unsigned long NETWORK_BUDGET_MS = 12000;
+constexpr uint32_t NTP_SYNC_EVERY_CYCLES = 12;
 
-  conectarWiFi(ssid, password);
-  sincronizarHorarioNTP();
+// Mantem o contador entre despertares de deep sleep.
+RTC_DATA_ATTR uint32_t wakeCycleCounter = 0;
 
-  configurarMQTT(mqtt_server, mqtt_port, mqtt_user, mqtt_password);
-  conectarMQTT();
+// --- Instâncias dos Objetos (Composição) ---
 
-  tentarEnviarLogsPendentes();
-  publicarDistancia();
+UltrasonicSensor ultrasonicSensor;
+BatterySensor batterySensor;
+MqttManager mqttManager;
+MqttPublisher mqttPublisher(mqttManager);
+PublishManager publishManager(mqttPublisher, ultrasonicSensor, batterySensor);
+WifiManager wifiManager;
+
+/**
+ * @brief Função de inicialização do sistema.
+ * @details Esta função é executada uma única vez quando o ESP32 é ligado ou resetado. Sua principal
+ *          responsabilidade é preparar o ambiente de execução. Ela inicializa a comunicação serial para
+ *          depuração, o sistema de arquivos SPIFFS para logging offline, configura os pinos do sensor,
+ *          estabelece a conexão Wi-Fi, sincroniza o tempo com um servidor NTP, configura a conexão MQTT
+ *          e, finalmente, realiza uma primeira tentativa de enviar logs antigos e publica a primeira
+ *          leitura do sensor.
+ *          No contexto do deep sleep, esta função é executada a cada despertar do dispositivo,
+ *          garantindo que as conexões Wi-Fi e MQTT sejam restabelecidas antes de qualquer operação de publicação.
+ */
+void setup()
+{
+    setCpuFrequencyMhz(80);
+
+    Serial.begin(115200);
+    delay(10);
+
+    Serial.print(device_name);
+    Serial.println(" is running");
+
+    // Injeta dependências circulares após a construção de todos os objetos
+    mqttManager.setPublishManager(&publishManager);
+    wifiManager.setPublishManager(&publishManager);
+
+    // batterySensor.begin();
+    publishManager.iniciarSPIFFS();
+    ultrasonicSensor.begin(trigPin, echoPin);
+
+    wakeCycleCounter++;
+    const bool shouldSyncNtp =
+        (wakeCycleCounter == 1) || (wakeCycleCounter % NTP_SYNC_EVERY_CYCLES == 0);
+
+    const unsigned long networkWindowStart = millis();
+    auto remainingNetworkBudgetMs = [networkWindowStart]() -> unsigned long
+    {
+        const unsigned long elapsed = millis() - networkWindowStart;
+        return (elapsed >= NETWORK_BUDGET_MS) ? 0 : (NETWORK_BUDGET_MS - elapsed);
+    };
+
+    wifiManager.begin(); // Conecta WiFi
+    if (!wifiManager.isConectado())
+    {
+        wifiManager.reconectar(remainingNetworkBudgetMs());
+    }
+    btStop(); // Desativa o Bluetooth
+
+    if (wifiManager.isConectado() && shouldSyncNtp)
+    {
+        const unsigned long timeoutNtp = remainingNetworkBudgetMs();
+        if (timeoutNtp > 0)
+        {
+            wifiManager.sincronizarNTP(timeoutNtp);
+        }
+        else
+        {
+            publishManager.publicarLogSistema("Orcamento de rede esgotado; NTP sera ignorado neste ciclo", "ERROR");
+        }
+    }
+    else if (!wifiManager.isConectado())
+    {
+        publishManager.publicarLogSistema("WiFi indisponivel; NTP sera ignorado neste ciclo", "ERROR");
+    }
+
+    bool pingou = wifiManager.ping(AWS_IOT_ENDPOINT);
+
+    if (pingou)
+    {
+        Serial.println("Conexão com AWS IOT confirmada.");
+    }
+
+    mqttManager.configurar(AWS_IOT_ENDPOINT, mqtt_port);
+    bool mqttConectado = false;
+    if (wifiManager.isConectado())
+    {
+        const unsigned long timeoutMqtt = remainingNetworkBudgetMs();
+        if (timeoutMqtt > 0)
+        {
+            mqttConectado = mqttManager.conectar(timeoutMqtt);
+        }
+        else
+        {
+            publishManager.publicarLogSistema("Orcamento de rede esgotado; MQTT sera ignorado neste ciclo", "ERROR");
+        }
+    }
+
+    publishManager.publicarDistancia();
+
+    /* if (mqttConectado && remainingNetworkBudgetMs() > 0)
+    {
+        mqttPublisher.enviarLogsPendentes();
+    }
+    publishManager.publicarBateria();
+    batterySensor.sleep();*/
+
+    // Serial.println("Entrando em modo deep sleep por 30 minutos...");
+    gpio_deep_sleep_hold_en();
+    esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP);
+    esp_deep_sleep_start();
 }
 
-void loop() {
-  static unsigned long ultimaLeitura = 0;
-  const unsigned long intervalo = 60000;
-  unsigned long agora = millis();
-
-  getMQTTClient().loop();
-
-  if (agora - ultimaLeitura >= intervalo) {
-    ultimaLeitura = agora;
-    publicarDistancia();
-  }
+/**
+ * @brief Função de loop principal do sistema.
+ * @details Com a implementação do modo deep sleep, esta função não é utilizada,
+ *          pois o dispositivo não fica em um loop contínuo. A lógica principal é executada
+ *          na função `setup()` a cada despertar do dispositivo. As tentativas de reconexão
+ *          Wi-Fi e MQTT, assim como outras rotinas de manutenção, são realizadas no `setup()`
+ *          a cada ciclo de despertar.
+ */
+void loop()
+{
 }

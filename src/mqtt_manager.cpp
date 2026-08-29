@@ -1,44 +1,78 @@
-#include "mqtt_manager.h"
-#include <WiFiClientSecure.h>
-#include "log_manager.h"
+/**
+ * @file mqtt_manager.cpp
+ * @brief Implementação da classe MqttManager.
+ * @details Gerencia o cliente MQTT global, lida com a configuração, o acesso à instância
+ *          do cliente e a lógica de conexão/reconexão com o broker MQTT. A comunicação é
+ *          feita de forma segura usando WiFiClientSecure, e os eventos de conexão são
+ *          registrados através do PublishManager.
+ */
 
-static WiFiClientSecure espClient;
-static PubSubClient client(espClient);
+#include "../include/mqtt_manager.h"
+#include "../include/publish_manager.h"
+#include "../include/aws_iot_config.h"
 
-static const char* _user;
-static const char* _password;
-static const char* _server;
-static int _port;
+/**
+ * @brief Construtor: inicializa o PubSubClient com o WiFiClientSecure interno.
+ */
+MqttManager::MqttManager()
+    : m_client(m_espClient) {}
 
-void configurarMQTT(const char* server, int port, const char* user, const char* password) {
-  _server = server;
-  _port = port;
-  _user = user;
-  _password = password;
-
-  espClient.setInsecure();
-  client.setServer(_server, _port);
+void MqttManager::setPublishManager(PublishManager *pm)
+{
+    m_publishManager = pm;
 }
 
-PubSubClient& getMQTTClient() {
-  return client;
+/**
+ * @brief Implementação da configuração do cliente MQTT.
+ * @details Armazena as informações do broker e configura o TLS mútuo com certificado raiz
+ *          da AWS, certificado do dispositivo e chave privada do dispositivo.
+ */
+void MqttManager::configurar(const char *server, int port)
+{
+    m_server = server;
+    m_port = port;
+
+    m_espClient.setCACert(AWS_IOT_ROOT_CA);
+    m_espClient.setCertificate(AWS_IOT_DEVICE_CERT);
+    m_espClient.setPrivateKey(AWS_IOT_PRIVATE_KEY);
+    m_client.setServer(m_server, m_port);
 }
 
-bool conectarMQTT(unsigned long timeoutMs) { // Timeout padrão 30s
-  unsigned long start = millis();
+PubSubClient &MqttManager::getClient()
+{
+    return m_client;
+}
 
-  while (!client.connected()) {
-    if (client.connect("ESP32Client", _user, _password)) {
-      logMessage("MQTT conectado com sucesso", "SUCCESS");
-      return true;
-    } else {
-      logMessage("Falha ao conectar no MQTT. Código: " + String(client.state()), "ERROR");
-      delay(5000);
+/**
+ * @brief Implementação da lógica de conexão com o broker MQTT.
+ * @details Entra em um loop que persiste até que a conexão seja estabelecida ou o timeout
+ *          seja atingido. Usa o PublishManager (se disponível) para registrar logs.
+ */
+bool MqttManager::conectar(unsigned long timeoutMs)
+{
+    unsigned long start = millis();
+
+    while (!m_client.connected())
+    {
+        if (m_client.connect(AWS_IOT_CLIENT_ID))
+        {
+            Serial.println("[MQTT] MQTT Conectado");
+            if (m_publishManager)
+                m_publishManager->publicarLogSistema("MQTT conectado com sucesso", "SUCCESS");
+            return true;
+        }
+        else
+        {
+            if (m_publishManager)
+                m_publishManager->publicarLogSistema("Falha ao conectar no MQTT. Código: " + String(m_client.state()), "ERROR");
+            delay(5000);
+        }
+        if (millis() - start > timeoutMs)
+        {
+            if (m_publishManager)
+                m_publishManager->publicarLogSistema("Timeout ao tentar conectar MQTT", "ERROR");
+            return false;
+        }
     }
-    if (millis() - start > timeoutMs) {
-      logMessage("Timeout ao tentar conectar MQTT", "ERROR");
-      return false;
-    }
-  }
-  return false;
+    return false;
 }
