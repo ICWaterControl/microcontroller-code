@@ -54,15 +54,15 @@ String PublishManager::criarJsonLog(const String &mensagem, const String &status
 
     if (distancia >= 0)
     {
-        doc["water-distance-cm"] = distancia;
+        doc["water_distance_cm"] = distancia;
     }
     if (batteryPercentage >= 0.0f)
     {
-        doc["battery-percentage"] = batteryPercentage;
+        doc["battery_percentage"] = batteryPercentage;
     }
     if (batteryVoltage >= 0.0f)
     {
-        doc["battery-voltage"] = batteryVoltage;
+        doc["battery_voltage"] = batteryVoltage;
     }
 
     String resultado;
